@@ -236,6 +236,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
 .selector{display:grid;gap:.25rem}
 .selector .rows{display:grid;grid-template-columns:repeat(10,1.9rem);gap:.25rem}
 .selector .key[data-sel="1"]{grid-column-start:1}
+.side{display:none}
 .selector .key{padding:0;height:1.9rem;justify-content:center;font-size:var(--text-md);border-bottom-width:3px}
 .selector .read{display:flex;justify-content:space-between;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em}
 .selector .read b{color:var(--color-lit);font-family:var(--font-display);font-size:var(--text-md);letter-spacing:.1em}
@@ -395,6 +396,22 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
   .modes .sep{display:none}
   .modes .vol{grid-column:1/-1;width:auto}.modes .vol input{flex:1}
   .modes .sleepread{grid-column:1/-1;text-align:center}
+  .side{display:block;color:var(--color-key)}
+  #sideNext{order:9;flex:1;min-height:0;overflow:hidden;margin-top:12px}
+  #sideRecent{position:fixed;right:22px;width:calc(var(--rail-w) - 48px);top:calc(80px + var(--sel-h, 160px) + var(--modes-h, 160px));bottom:22px;overflow:hidden}
+  .side .sh{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.1em;margin:0 0 .45rem;display:flex;justify-content:space-between;opacity:.8}
+  .side .sh b{color:var(--color-lit);font-weight:700}
+  .side ol{list-style:none;margin:0;padding:0}
+  .side li{display:grid;grid-template-columns:1.4rem minmax(0,1fr) auto;gap:.4rem;padding:.42rem 0;border-top:1px solid var(--color-frame-3);font-size:var(--text-sm);cursor:pointer}
+  .side li:hover span{color:var(--color-lit)}
+  .side li b{color:var(--color-lit);font-family:var(--font-display);font-weight:800}
+  .side li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side li small{opacity:.6;font-variant-numeric:tabular-nums}
+  .side .empty{font-size:var(--text-sm);opacity:.7;padding:.4rem 0;border-top:1px solid var(--color-frame-3)}
+  .side .covs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .side .covs a{display:block;aspect-ratio:1;border:2px solid var(--color-frame-3);background:var(--color-frame-2);overflow:hidden}
+  .side .covs a:hover{border-color:var(--color-lit)}
+  .side .covs img{width:100%;height:100%;object-fit:cover;display:block}
   .drawer{right:var(--rail-w);transform:translateX(calc(105% + var(--rail-w)))}
   .drawer.open{transform:none}
 }
@@ -474,6 +491,8 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
       <div class="prog"><span id="tCur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek"><span id="tDur">0:00</span></div>
       <div class="next" id="next"></div>
     </div>
+    <div class="side" id="sideNext" aria-label="Up next"></div>
+    <div class="side" id="sideRecent" aria-label="Played lately"></div>
     <div class="transport">
       <button class="key" data-k="prev" title="Previous (Shift+←)">◀◀</button>
       <button class="key red play" data-k="toggle" id="playBtn" title="Play / pause (Space)">▶</button>
@@ -611,7 +630,7 @@ audio.addEventListener('timeupdate', () => {
   }
   const id = Q[qi];
   if (byT[id]?.pod) podTick(byT[id], c, d);
-  if (id && counted !== id && c > (d ? Math.min(30, d * .5) : 30)) { counted = id; S.plays[id] = (S.plays[id] || 0) + 1; S.lastPlayed[id] = Date.now(); S.albumPlayed[byT[id].album] = Date.now(); save(); }
+  if (id && counted !== id && c > (d ? Math.min(30, d * .5) : 30)) { counted = id; S.plays[id] = (S.plays[id] || 0) + 1; S.lastPlayed[id] = Date.now(); S.albumPlayed[byT[id].album] = Date.now(); save(); renderSide(); }
   if (sleepAt) {
     const left = sleepAt - Date.now();
     $('#sleepRead').textContent = left > 0 ? fmt(left / 1000) : '';
@@ -694,8 +713,21 @@ function nextLine() {
   if (byT[Q[qi]].net) return 'Next: nothing — the record ends here';
   return S.settings.autoplay ? 'Next: autoplay picks something in the same mood' : 'Next: nothing — the list ends here';
 }
+// side rails: what's coming up, and the records you played most recently
+function renderSide() {
+  if (!matchMedia('(min-width:1500px) and (min-height:640px)').matches) return;  // only in the two-rail layout
+  const rest = Q.slice(qi + 1).filter(id => byT[id]);
+  $('#sideNext').innerHTML = `<p class="sh"><span>Up next</span>${rest.length ? `<b>${rest.length} song${rest.length > 1 ? 's' : ''}</b>` : ''}</p>`
+    + (rest.length ? `<ol>${rest.slice(0, 12).map((id, k) => `<li data-sidei="${qi + 1 + k}" title="Play ${esc(byT[id].title)} now"><b>${k + 1}</b><span>${esc(byT[id].title)}</span><small>${byT[id].radio ? 'live' : fmt(byT[id].dur)}</small></li>`).join('')}</ol>`
+      : `<p class="empty">${singleSong ? 'Just one song: it stops at the end.' : S.settings.autoplay && Q.length ? 'Nothing lined up. Autoplay will carry on with similar moods.' : 'Pick a record and its songs line up here.'}</p>`);
+  const recent = Object.entries(S.albumPlayed || {}).sort((a, b) => b[1] - a[1]).map(([id]) => byA[id]).filter(Boolean).slice(0, 9);
+  $('#sideRecent').innerHTML = `<p class="sh"><span>Played lately</span></p>`
+    + (recent.length ? `<div class="covs">${recent.map(a => `<a href="#/album/${a.id}" title="${esc(albumName(a))}${a.artist ? ' · ' + esc(a.artist) : ''}">${a.hasArt || a.logo ? `<img src="${esc(artUrl(a))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</a>`).join('')}</div>`
+      : '<p class="empty">Records you play show up here.</p>');
+}
+$('#sideNext').addEventListener('click', e => { const r = e.target.closest('[data-sidei]'); if (r) { qi = +r.dataset.sidei; singleSong = false; load(true); } });
 function renderNP() {
-  renderModes();
+  renderModes(); renderSide();
   if (vOn()) return renderVpanel();
   const t = byT[Q[qi]];
   if (!t) {
@@ -1810,9 +1842,9 @@ if ('mediaSession' in navigator) {
 }
 // in the two-rail layout nothing sits along the bottom, so nothing needs room there
 const RAILS = matchMedia('(min-width:1500px) and (min-height:640px)');
-const panelH = () => { const r = document.documentElement.style; r.setProperty('--panel-h', RAILS.matches ? '0px' : $('#panel').offsetHeight + 'px'); r.setProperty('--sel-h', $('.selector').offsetHeight + 'px'); };
+const panelH = () => { const r = document.documentElement.style; r.setProperty('--panel-h', RAILS.matches ? '0px' : $('#panel').offsetHeight + 'px'); r.setProperty('--sel-h', $('.selector').offsetHeight + 'px'); r.setProperty('--modes-h', $('.modes').offsetHeight + 'px'); };
 new ResizeObserver(panelH).observe($('.selector'));
-new ResizeObserver(panelH).observe($('#panel')); RAILS.addEventListener('change', panelH);
+new ResizeObserver(panelH).observe($('#panel')); RAILS.addEventListener('change', () => { panelH(); renderSide(); });
 
 // ───────────────────────────────────────────── boot
 async function boot(again) {
