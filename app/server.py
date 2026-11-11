@@ -1267,6 +1267,8 @@ class Handler(BaseHTTPRequestHandler):
                 url = None
             return self.relay(url, live=True) if url else self.send_bytes(b"station not found", "text/plain", 404)
         if path == "/api/update":
+            if "fresh" in parse_qs(urlparse(self.path).query):
+                update_cache.clear()  # the button asks GitHub now, not the 6-hour copy
             return self.send_json(check_update())
         if path == "/api/pod/import":
             # shows dropped in pods_import.json get followed next time the page opens (file is used once)

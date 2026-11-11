@@ -411,7 +411,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
   .side li b{color:var(--color-lit);font-family:var(--font-display);font-weight:800}
   .side li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .side li small{opacity:.6;font-variant-numeric:tabular-nums}
-  .side .empty{font-size:var(--text-sm);opacity:.7;padding:.4rem 0;border-top:1px solid var(--color-frame-3)}
+  .side .empty{font-size:var(--text-sm);color:var(--color-key);opacity:.75;padding:.4rem 0;border-top:1px solid var(--color-frame-3)}
   .side .covs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .side .covs a{display:block;aspect-ratio:1;border:2px solid var(--color-frame-3);background:var(--color-frame-2);overflow:hidden}
   .side .covs a:hover{border-color:var(--color-lit)}
@@ -1020,11 +1020,29 @@ function viewSetup() {
     <h2 class="sub-h">3. Keep it all in one place?</h2>
     <div class="flist">
       <label class="frow"><input type="radio" name="sucopy" value="no" ${SU.copy ? '' : 'checked'}><span><b>Play my music where it is</b><small>Nothing is copied or moved.</small></span></label>
-      <label class="frow"><input type="radio" name="sucopy" value="yes" ${SU.copy ? 'checked' : ''}><span><b>Copy it all into one jukebox folder</b><small>Good if your songs are spread about. New songs added to the ticked folders are copied in too, every time the jukebox starts and every 30 minutes. Your originals are never moved or deleted. Uses extra disk space.</small><small>Folder: <b style="display:inline">${esc(SU.copyTo)}</b></small></span></label>
+      <label class="frow"><input type="radio" name="sucopy" value="yes" ${SU.copy ? 'checked' : ''}><span><b>Copy it all into one jukebox folder</b><small>Good if your songs are spread about. New songs added to the ticked folders are copied in too, every time the jukebox starts and every 30 minutes. Your originals are never moved or deleted. Uses extra disk space.</small><small style="display:block;margin-top:.25rem">Folder: <b style="display:inline">${esc(SU.copyTo)}</b></small></span></label>
     </div>
     ${SU.copy ? '<button class="key" data-action="sucopybrowse">Choose a different jukebox folder…</button>' : ''}
     ${syncNote()}
-    <button class="key red go-big" data-action="sudone" ${SU.busy ? 'disabled' : ''}>${SU.busy ? 'Loading your music…' : first ? 'Start the jukebox' : 'Save'}</button></div>`;
+    <button class="key red go-big" data-action="sudone" ${SU.busy ? 'disabled' : ''}>${SU.busy ? 'Loading your music…' : first ? 'Start the jukebox' : 'Save'}</button>
+    ${first ? '' : updSection()}</div>`;
+}
+// version and updates (Music folders page)
+const UPD = {state: 'idle', info: null};
+function updSection() {
+  if (!UPD.info && UPD.state === 'idle') { UPD.state = 'loading'; fetch('/api/update').then(r => r.json()).then(u => { UPD.info = u; UPD.state = 'idle'; if (location.hash === '#/setup') route(); }, () => { UPD.state = 'idle'; }); }
+  const u = UPD.info;
+  const line = UPD.state === 'checking' ? 'Checking GitHub for a newer version…'
+    : !u ? '' : u.newer ? `Version ${esc(u.latest)} is available.${u.notes ? ' What\'s new: ' + esc(u.notes.split('\n')[0]) : ''}`
+    : UPD.state === 'checked' ? 'You have the newest version.' : '';
+  return `<h2 class="sub-h">Version and updates</h2>
+    <p class="whynote">You have version <b>${esc(u?.current || '…')}</b>. ${line}</p>
+    <div class="acts">${u?.newer ? '<button class="key red" data-action="updnow">Update now</button>' : `<button class="key" data-action="updcheck" ${UPD.state === 'checking' ? 'disabled' : ''}>Check for updates</button>`}</div>
+    <p class="whynote">Updating takes about a minute and keeps your music, favourites, play lists and podcasts.</p>`;
+}
+function updCheckNow() {
+  UPD.state = 'checking'; route();
+  fetch('/api/update?fresh=1').then(r => r.json()).then(u => { UPD.info = u; UPD.state = 'checked'; route(); if (u.newer) updCheck(); }, () => { UPD.state = 'idle'; route(); toast("Couldn't reach GitHub. Check the internet and try again."); });
 }
 async function setupBrowse() {
   toast('Choose a folder in the window that opens');
@@ -1843,6 +1861,7 @@ document.addEventListener('click', e => {
     if (a === 'podfresh') { toast('Checking for new episodes…'); podLoad(d.sid, true).then(() => { route(); toast('Up to date'); }, e2 => toast(e2.message)); }
     if (a === 'vall') vQueue(VLIST);
     if (a === 'vshuf') vQueue(shuffleArr(VLIST));
+    if (a === 'updcheck') updCheckNow();
     if (a === 'updnow') { fetch('/api/update/run', {method: 'POST'}).then(r => r.json()).then(r => toast(r.ok ? 'Updating: a window opens, then the jukebox restarts' : 'Run "Update Select & Play" from the Start menu')).catch(() => {}); }
     if (a === 'updlater') { fetch('/api/update').then(r => r.json()).then(u => { S.settings.skipVersion = u.latest; save(); $('#updBar').hidden = true; toast('OK. It will remind you when the next version comes out'); }); }
     if (a === 'subrowse') setupBrowse();
