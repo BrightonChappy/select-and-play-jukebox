@@ -56,7 +56,10 @@ Very big collections are fine. After record Z0 the codes carry on as AA1, AB1 an
 
 Yes. Here's how to tell:
 
-- **Virus scan:** the download was scanned with Microsoft Defender (the antivirus built into Windows) on 11 November 2026, with up-to-date virus definitions. No threats were found. You can also scan it yourself for free at [virustotal.com](https://www.virustotal.com), which checks it with about 70 antivirus programs.
+- **Virus scans:**
+  - **VirusTotal: 0 out of 93 security checkers flagged the download link.** [See the VirusTotal report](https://www.virustotal.com/gui/url/2b199ec1b01969f9ebb7a64eda0d5ad276c7af8ee214b82ed3b20490385529ac) (checked 11 November 2026).
+  - **Microsoft Defender** (the antivirus built into Windows) scanned the download on 11 November 2026, with up-to-date virus definitions, and found no threats.
+  - You can run your own scan for free at [virustotal.com](https://www.virustotal.com).
 - **Check you've got the real file:** the download's SHA-256 fingerprint is
   `404af07eb3ed7265239cf9f00c6c7bfdb6c8fd6a0704e84836f052f727a04581`.
   To check yours, right-click the Start button, open **Terminal** (or PowerShell), and type `Get-FileHash $HOME\Downloads\Select-and-Play.zip`. The long code it shows should match.
