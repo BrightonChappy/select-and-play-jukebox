@@ -1,0 +1,79 @@
+# Select & Play
+
+A jukebox for your Windows PC. It plays the music already on your computer, plus internet radio, podcasts and free music from the Internet Archive. You pick records like on an old-fashioned wallbox: press a letter and a number (A1, B4…) and it plays.
+
+## ⬇️ Download
+
+### [**Click here to download Select & Play**](https://github.com/BrightonChappy/select-and-play/releases/latest/download/Select-and-Play.zip)
+
+Works on Windows 10 and Windows 11. Free.
+
+---
+
+## How to install (about 5 minutes)
+
+1. **Click the download link above.** A file called `Select-and-Play.zip` goes into your **Downloads** folder.
+2. **Open your Downloads folder.** Right-click `Select-and-Play.zip` and choose **Extract All…**, then press **Extract**.
+3. A new folder opens. **Double-click `Install Select and Play`.**
+4. Windows may show a blue box saying **"Windows protected your PC"**. That's normal for small free programs. Click **More info**, then **Run anyway**.
+5. A black window opens and sets everything up on its own. It installs anything missing (Python and a few add-ons). **Leave it open until it says DONE.**
+6. It asks if you want the jukebox to start when Windows starts. Type **Y** and press Enter for yes, or just press **Enter** for no.
+7. The jukebox opens. Next time, use the **Select & Play** icon on your desktop.
+
+## The first time it opens
+
+You get a short welcome screen:
+
+1. **Name your jukebox.** Call it anything, like "Dave's Jukebox", or leave it as it is.
+2. **Where is your music?** It looks in the usual places and shows what it finds, with the number of songs. Tick the folders you want. If your music is somewhere else (an external drive, say), press **Add another folder…** and pick it.
+3. **Keep it all in one place?**
+   - **Play my music where it is.** Nothing is copied or moved. Best for most people.
+   - **Copy it all into one jukebox folder.** Good if your songs are spread across lots of folders. It copies everything into one tidy folder (sorted by artist and album). From then on, any new songs added to the ticked folders are copied over automatically. Your originals are never moved or deleted. It does use extra disk space.
+
+Press **Start the jukebox**. You can change any of this later under **Music folders**.
+
+## Using it
+
+| To do this | Do this |
+|---|---|
+| Play a record | Press a letter, then a number, on the keys on the right (or your keyboard), e.g. **A** then **3** |
+| Play something random | **Random** |
+| Browse | **Pages by** Mood, Genre, Decade, or A–Z |
+| Search your songs | The search box at the top (or press **/**) |
+| Podcasts | **Podcasts** (or press **P**). Search for a show and press **+ Follow**. New episodes get a blue **New Episode** tag, and it suggests episodes you might like. |
+| Internet radio and free music | **Internet** (or press **I**) |
+| Favourites | The ♥ next to any song |
+| Close it | Close the window. It keeps running quietly. Open it again from the desktop icon. |
+
+Very big collections are fine. After record Z0 the codes carry on as AA1, AB1 and so on.
+
+## Updating
+
+Open the Start menu and click **Update Select & Play**. It downloads the newest version. Your music, favourites, play lists and podcasts are kept.
+
+## Removing it
+
+Open the Start menu and click **Uninstall Select & Play**. Your music files are never touched. It asks whether to keep your favourites and podcast list too.
+
+## If something goes wrong
+
+- **The installer says "Sorry, something went wrong".** Take a photo of the window and send it to whoever gave you the link. Usually the internet dropped out, so try running it again.
+- **The jukebox window is blank.** Run the installer again. It fixes the missing Windows part (WebView2).
+- **No music shows up.** Go to **Music folders** and tick the right folder, or use **Add another folder…**.
+- **Some songs are missing.** It plays MP3, M4A, FLAC, OGG, WAV and WMA files. Songs from Spotify, Apple Music or other streaming apps can't be played, because those aren't files on your PC.
+- **Windows Defender or antivirus complains.** The installer is a plain script you can read (`install.ps1`). It only installs Python, the add-ons listed in it, and the jukebox itself.
+
+## What it connects to
+
+Everything about you stays on your PC (in `%LOCALAPPDATA%\SelectAndPlay`). It only goes online for the features that need it:
+
+- Apple's podcast directory, for searching podcasts. No Apple account is needed.
+- The Internet Archive (archive.org), for free music.
+- radio-browser.info, for radio stations.
+- YouTube, only if you use the Videos page.
+
+There are no accounts, no adverts and no tracking.
+
+## For the curious
+
+It's a small Python program (`app/server.py`) that serves a web page (`app/index.html`) in its own window (`app/tray.py`, using pywebview). The installer is `install.ps1`.

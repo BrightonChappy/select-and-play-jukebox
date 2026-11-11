@@ -1,0 +1,69 @@
+{
+ "moods": {
+  "Feel-Good": {
+   "color": "#f5b301",
+   "blurb": "Sunny, toe-tapping, windows down"
+  },
+  "Party": {
+   "color": "#ff3d7f",
+   "blurb": "Turn it up and roll back the rug"
+  },
+  "High Energy": {
+   "color": "#ff5722",
+   "blurb": "Big beats, no brakes"
+  },
+  "Workout": {
+   "color": "#e53935",
+   "blurb": "Tempo to keep you moving"
+  },
+  "Sing-Along": {
+   "color": "#ff9800",
+   "blurb": "You know every word"
+  },
+  "Road Trip": {
+   "color": "#26a69a",
+   "blurb": "Open roads and big choruses"
+  },
+  "Uplifting": {
+   "color": "#29b6f6",
+   "blurb": "Hopeful, soaring, lifts the room"
+  },
+  "Chill": {
+   "color": "#5c9ead",
+   "blurb": "Easy, unhurried, low-key"
+  },
+  "Late Night": {
+   "color": "#5e35b1",
+   "blurb": "Lights down, glass of something"
+  },
+  "Romantic": {
+   "color": "#d81b60",
+   "blurb": "For the two of you"
+  },
+  "Heartbreak": {
+   "color": "#8e24aa",
+   "blurb": "Have a good cry"
+  },
+  "Reflective": {
+   "color": "#546e7a",
+   "blurb": "Thoughtful, introspective"
+  },
+  "Nostalgic": {
+   "color": "#a1887f",
+   "blurb": "Take me back"
+  },
+  "Dramatic": {
+   "color": "#b71c1c",
+   "blurb": "Arias, overtures and big emotions"
+  },
+  "Rebellious": {
+   "color": "#424242",
+   "blurb": "Attitude, guitars and swagger"
+  },
+  "Focus": {
+   "color": "#43a047",
+   "blurb": "Background for thinking"
+  }
+ },
+ "albums": {}
+}
