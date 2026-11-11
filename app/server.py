@@ -511,6 +511,51 @@ def sync_loop():
         time.sleep(30 * 60)
 
 
+# ---------------------------------------------------------------- updates: is there a newer release on GitHub?
+REPO = "BrightonChappy/select-and-play-jukebox"
+update_cache = {}
+
+
+def _ver(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or "0")[:3])
+
+
+def local_version():
+    return load_json(os.path.join(HERE, "version.json"), {}).get("version", "0")
+
+
+def check_update():
+    """Asks GitHub for the newest release (at most every 6 hours). Never raises."""
+    hit = update_cache.get("r")
+    if hit and time.time() - hit[0] < 6 * 3600:
+        return hit[1]
+    cur = local_version()
+    res = {"current": cur, "latest": cur, "newer": False, "notes": ""}
+    try:
+        req = Request(f"https://api.github.com/repos/{REPO}/releases/latest",
+                      headers={"User-Agent": "SelectAndPlay-update-check", "Accept": "application/vnd.github+json"})
+        with urlopen(req, timeout=10) as r:
+            d = json.loads(r.read().decode("utf8"))
+        latest = (d.get("tag_name") or "").lstrip("vV")
+        res.update(latest=latest or cur, newer=_ver(latest) > _ver(cur),
+                   notes=_text(d.get("body") or "").strip()[:300])
+    except (HTTPError, URLError, OSError, ValueError):
+        pass
+    update_cache["r"] = (time.time(), res)
+    return res
+
+
+def run_update():
+    """Starts the installer in its own window. It downloads the new version, closes this
+    jukebox, puts the new files in place and opens it again. Music and favourites are kept."""
+    script = os.path.join(HERE, "install.ps1")
+    if not os.path.exists(script):
+        return False
+    subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-Update"],
+                     creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0), close_fds=True)
+    return True
+
+
 # ---------------------------------------------------------------- first-run setup: where is the music?
 def _known_music():
     """Windows' own Music folder (follows OneDrive or a moved folder), plus the other usual places."""
@@ -1221,6 +1266,8 @@ class Handler(BaseHTTPRequestHandler):
             except (HTTPError, URLError, OSError, ValueError):
                 url = None
             return self.relay(url, live=True) if url else self.send_bytes(b"station not found", "text/plain", 404)
+        if path == "/api/update":
+            return self.send_json(check_update())
         if path == "/api/pod/import":
             # shows dropped in pods_import.json get followed next time the page opens (file is used once)
             f = os.path.join(DATA_DIR, "pods_import.json")
@@ -1369,6 +1416,8 @@ class Handler(BaseHTTPRequestHandler):
             if "albumMoods" in data:
                 apply_curation(library["albums"])
             return self.send_json({"ok": True})
+        if path == "/api/update/run":
+            return self.send_json({"ok": run_update()})
         if path == "/api/setup":
             try:
                 data = json.loads(body or b"{}")

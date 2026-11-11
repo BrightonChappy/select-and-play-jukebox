@@ -10,6 +10,7 @@
 # 'Continue', not 'Stop': in Windows PowerShell 5 a harmless warning from pip or Python on
 # stderr counts as an error under 'Stop' and would close this window without a word.
 # Real failures are checked for by hand below, and anything unexpected is caught by the trap.
+param([switch]$Update)
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'   # makes downloads much faster
 $Log = Join-Path $env:TEMP 'SelectAndPlay-install-log.txt'

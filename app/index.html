@@ -174,6 +174,10 @@ nav.dims a[aria-current]{border-bottom-color:var(--color-accent);font-weight:700
 .frow small{color:var(--color-ink-2)}
 .flist{border-top:4px solid var(--color-accent);border-bottom:4px solid var(--color-accent-2);margin:.4rem 0 .8rem}
 .setup .go-big{font-size:var(--text-xl);padding:.6rem 1.6rem;margin-top:var(--space-md)}
+.updbar{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;background:var(--color-ink);color:var(--color-lit);padding:.6rem 1rem;margin-bottom:var(--space-sm);border-left:6px solid var(--color-accent)}
+.updbar[hidden]{display:none}
+.updbar b{font-family:var(--font-display);text-transform:uppercase;font-size:var(--text-lg);letter-spacing:.03em}
+.updbar span{color:var(--color-strip);font-size:var(--text-sm);flex:1;min-width:12rem}
 .whynote{font-size:var(--text-xs);color:var(--color-ink-2);margin:.1rem 0 .5rem}
 .pm.part{color:var(--color-accent);border-style:dashed}
 .pm.done{color:var(--color-strip);background:var(--color-ink-2);border-color:var(--color-ink-2)}
@@ -412,6 +416,19 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
   .side .covs a{display:block;aspect-ratio:1;border:2px solid var(--color-frame-3);background:var(--color-frame-2);overflow:hidden}
   .side .covs a:hover{border-color:var(--color-lit)}
   .side .covs img{width:100%;height:100%;object-fit:cover;display:block}
+  #sideRecent{display:flex;flex-direction:column}
+  .side .fy{margin-top:1.1rem;min-height:0}
+  .side .fy ul{list-style:none;margin:0;padding:0}
+  .side .fy li{display:block;padding:.4rem 0;border-top:1px solid var(--color-frame-3);cursor:pointer}
+  .side .fy .fm{display:flex;align-items:center;gap:.45rem;margin-top:.15rem;min-width:0}
+  .side .fy li:hover .ft{color:var(--color-lit)}
+  .side .fy .fp{flex:none;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:.05rem .4rem;border-radius:999px;color:#1b1210}
+  .side .fy .fp.album{background:var(--color-lit)}
+  .side .fy .fp.podcast{background:#5aa9e6}
+  .side .fy .fp.internet{background:#ef6a4c}
+  .side .fy .fp.radio{background:#7bc47f}
+  .side .fy .ft{display:block;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side .fy small{font-size:var(--text-xs);opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .drawer{right:var(--rail-w);transform:translateX(calc(105% + var(--rail-w)))}
   .drawer.open{transform:none}
 }
@@ -420,6 +437,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
 </head>
 <body>
 <div class="wrap">
+  <div class="updbar" id="updBar" hidden></div>
   <header class="top">
     <a class="mark" href="#/by/mood">Select <span>&amp;</span> Play</a>
     <div class="hright">
@@ -723,8 +741,74 @@ function renderSide() {
   const recent = Object.entries(S.albumPlayed || {}).sort((a, b) => b[1] - a[1]).map(([id]) => byA[id]).filter(Boolean).slice(0, 9);
   $('#sideRecent').innerHTML = `<p class="sh"><span>Played lately</span></p>`
     + (recent.length ? `<div class="covs">${recent.map(a => `<a href="#/album/${a.id}" title="${esc(albumName(a))}${a.artist ? ' · ' + esc(a.artist) : ''}">${a.hasArt || a.logo ? `<img src="${esc(artUrl(a))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</a>`).join('')}</div>`
-      : '<p class="empty">Records you play show up here.</p>');
+      : '<p class="empty">Records you play show up here.</p>')
+    + `<div class="fy" id="forYou"></div>`;
+  renderForYou();
 }
+// ─── For you: a mix of things you might like, from what you've played lately
+const FY = {data: {}, busy: {}};
+function fyFetch(key, url, keep) {  // each look-up once per session (or until its seed changes)
+  if (FY.data[key] || FY.busy[key]) return FY.data[key];
+  FY.busy[key] = true;
+  netGet(url).then(r => { FY.data[key] = keep(r); }, () => { FY.data[key] = []; }).finally(() => { delete FY.busy[key]; renderForYou(); });
+}
+function fyPicks() {
+  // what you've played lately: your own records only (podcasts, radio and internet have their own seeds)
+  const recent = Object.entries(S.albumPlayed || {}).sort((a, b) => b[1] - a[1]).map(([id, t]) => [byA[id], t]).filter(([a]) => a && ALB.includes(a)).slice(0, 12);
+  const weekAgo = Date.now() - 7 * 864e5, moodW = {}, genreW = {}, artistW = {};
+  recent.forEach(([a], i) => { const w = 12 - i; a.moods.forEach(m => moodW[m] = (moodW[m] || 0) + w); genreW[a.genre] = (genreW[a.genre] || 0) + w; if (a.artist !== 'Various Artists') artistW[a.artist] = (artistW[a.artist] || 0) + w; });
+  const top = o => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  // 1. your own records you haven't played this week, closest in mood and genre to the recent ones
+  const albums = recent.length ? ALB.filter(a => !(S.albumPlayed[a.id] > weekAgo) && a.genre !== 'Spoken Word')
+    .map(a => ({a, score: a.moods.reduce((x, m) => x + (moodW[m] || 0), 0) + (genreW[a.genre] || 0) * 1.5}))
+    .filter(x => x.score > 0).sort((x, y) => y.score - x.score).slice(0, 4).map(({a}) => {
+      // the reason names a recent record of the same genre, else the one sharing most moods
+      const like = recent.find(([r]) => r.genre === a.genre)?.[0]
+        || recent.map(([r]) => r).sort((x, y) => y.moods.filter(m => a.moods.includes(m)).length - x.moods.filter(m => a.moods.includes(m)).length)[0];
+      return {kind: 'album', title: albumName(a), sub: `${a.artist}${like ? ' · like ' + albumName(like) : ''}`, go: () => playList(a.tracks, 0, {inOrder: true, source: {k: 'For you', v: a.title, d: 'plays through in order'}})};
+    }) : [];
+  // 2. podcast episodes from the "You might like" picks on the podcast page
+  let pods = [];
+  if (S.pods.length || Object.keys(S.podPos).length) {
+    const url = podSuggestUrl(), key = 'pod|sugg|' + url;
+    if (!NETQ[key] && !NETERR[key] && !FY.busy[key]) { FY.busy[key] = true; netGet(url).then(r => { NETQ[key] = {...r, ids: podSuggestRegister(r)}; }, e => { NETERR[key] = e.message; }).finally(() => { delete FY.busy[key]; renderForYou(); }); }
+    pods = (NETQ[key]?.ids || []).filter(id => byT[id] && !S.podDone[id] && !S.podPos[id]).slice(0, 3)
+      .map(id => ({kind: 'podcast', title: byT[id].title, sub: `${byT[id].artist}${byT[id].why ? ' · ' + byT[id].why : ''}`, go: () => playList([id], 0, {inOrder: true, source: {k: 'Podcast', v: byT[id].artist, d: 'for you'}})}));
+  }
+  // 3. free recordings on the Internet Archive by the artist you've played most lately
+  const artist = top(artistW)[0];
+  let net = [];
+  if (artist) {
+    const k = 'fy|net|' + artist;
+    fyFetch(k, `/api/net/search?q=${enc(artist)}&where=music`, r => (r.items || []).slice(0, 6));
+    net = (FY.data[k] || []).filter(x => !NET_ITEMS[x.id]).slice(0, 2)
+      .map(x => ({kind: 'internet', title: x.title, sub: `${x.creator || artist} · Internet Archive`, go: () => netPlay(x.id)}));
+  }
+  // 4. a live station playing the genre you've played most lately
+  const genre = top(genreW).find(g => g && g !== 'Other');
+  let radio = [];
+  if (genre) {
+    const k = 'fy|radio|' + genre;
+    fyFetch(k, '/api/radio/search?q=' + enc(genre.toLowerCase()), r => (Array.isArray(r) ? r : r.items || []).slice(0, 3));
+    radio = (FY.data[k] || []).slice(0, 2).map(st => ({kind: 'radio', title: st.name, sub: `${genre} · live${st.country ? ' · ' + st.country : ''}`,
+      go: () => { RADIO[st.id] = st; const a = radioRegister(st); playList(a.tracks, 0, {inOrder: true, source: {k: 'Live radio', v: st.name, d: 'for you'}}); }}));
+  }
+  // take turns so every kind gets a look-in
+  const out = [], lists = [albums, pods, net, radio];
+  for (let i = 0; out.length < 12 && lists.some(l => l[i]); i++) lists.forEach(l => { if (l[i]) out.push(l[i]); });
+  return out;
+}
+function renderForYou() {
+  const box = $('#forYou'); if (!box) return;
+  FY.list = fyPicks();
+  box.innerHTML = `<p class="sh"><span>For you</span></p>` + (FY.list.length
+    ? `<ul>${FY.list.map((x, i) => `<li data-fy="${i}" title="${esc(x.title)} (${esc(x.sub)})"><span class="ft">${esc(x.title)}</span><span class="fm"><span class="fp ${x.kind}">${x.kind}</span><small>${esc(x.sub)}</small></span></li>`).join('')}</ul>`
+    : '<p class="empty">Play a few records and suggestions appear here.</p>');
+  // show only the rows that fit in the rail
+  const bottom = $('#sideRecent').getBoundingClientRect().bottom;
+  box.querySelectorAll('li').forEach(li => { if (li.getBoundingClientRect().bottom > bottom) li.remove(); });
+}
+$('#sideRecent').addEventListener('click', e => { const r = e.target.closest('[data-fy]'); if (r) FY.list[+r.dataset.fy]?.go(); });
 $('#sideNext').addEventListener('click', e => { const r = e.target.closest('[data-sidei]'); if (r) { qi = +r.dataset.sidei; singleSong = false; load(true); } });
 function renderNP() {
   renderModes(); renderSide();
@@ -1759,6 +1843,8 @@ document.addEventListener('click', e => {
     if (a === 'podfresh') { toast('Checking for new episodes…'); podLoad(d.sid, true).then(() => { route(); toast('Up to date'); }, e2 => toast(e2.message)); }
     if (a === 'vall') vQueue(VLIST);
     if (a === 'vshuf') vQueue(shuffleArr(VLIST));
+    if (a === 'updnow') { fetch('/api/update/run', {method: 'POST'}).then(r => r.json()).then(r => toast(r.ok ? 'Updating: a window opens, then the jukebox restarts' : 'Run "Update Select & Play" from the Start menu')).catch(() => {}); }
+    if (a === 'updlater') { fetch('/api/update').then(r => r.json()).then(u => { S.settings.skipVersion = u.latest; save(); $('#updBar').hidden = true; toast('OK. It will remind you when the next version comes out'); }); }
     if (a === 'subrowse') setupBrowse();
     if (a === 'sucopybrowse') setupCopyBrowse();
     if (a === 'sudone') setupDone();
@@ -1885,6 +1971,17 @@ async function boot(again) {
   }).catch(() => {});
 }
 boot();
+// is there a newer version of the jukebox on GitHub? checked a minute after start, then twice a day
+function updCheck() {
+  fetch('/api/update').then(r => r.json()).then(u => {
+    const bar = $('#updBar');
+    if (!u.newer || S.settings.skipVersion === u.latest) { bar.hidden = true; return; }
+    bar.innerHTML = `<b>New version ${esc(u.latest)} available</b><span>You have ${esc(u.current)}. Updating takes about a minute; your music, favourites and podcasts are kept.${u.notes ? ' What\'s new: ' + esc(u.notes.split('\n')[0]) : ''}</span>
+      <button class="key red" data-action="updnow">Update now</button><button class="key" data-action="updlater">Later</button>`;
+    bar.hidden = false;
+  }).catch(() => {});
+}
+setTimeout(updCheck, 60 * 1000); setInterval(updCheck, 12 * 3600 * 1000);
 // look for new episodes in the shows you follow when the jukebox starts, then every 30 minutes
 function podCheck() { Promise.allSettled(S.pods.map(p => podLoad(p.id))).then(() => { podBadge(); if (location.hash === '#/pod') route(); }); }
 setTimeout(podCheck, 4000); setInterval(podCheck, 30 * 60 * 1000);
