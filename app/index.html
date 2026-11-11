@@ -52,6 +52,9 @@ a{color:inherit}
 header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-sm) var(--space-md);border-bottom:3px double var(--color-ink);padding-bottom:var(--space-xs)}
 .mark{font-family:var(--font-display);font-weight:800;font-size:var(--text-display);line-height:.9;margin:0;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 .mark span{color:var(--color-accent)}
+.brand{display:flex;align-items:flex-end;gap:.5rem}
+.dlc{font-size:var(--text-xs);color:var(--color-ink-2);text-decoration:none;white-space:nowrap;padding-bottom:.15rem}
+.dlc:empty{display:none}
 .search{display:flex;align-items:center;gap:var(--space-2xs);background:var(--color-strip);border:2px solid var(--color-ink);padding:.35rem .6rem;min-width:min(100%,340px);flex:0 1 420px}
 .search input{flex:1;min-width:0;border:0;background:none;outline:0;text-transform:uppercase;letter-spacing:.04em}
 .search input::placeholder{color:var(--color-ink-2)}
@@ -439,7 +442,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
 <div class="wrap">
   <div class="updbar" id="updBar" hidden></div>
   <header class="top">
-    <a class="mark" href="#/by/mood">Select <span>&amp;</span> Play</a>
+    <div class="brand"><a class="mark" href="#/by/mood">Select <span>&amp;</span> Play</a><a class="dlc" id="dlc" href="https://github.com/BrightonChappy/select-and-play-jukebox/releases" target="_blank" rel="noopener"></a></div>
     <div class="hright">
       <label class="search"><input id="q" type="text" placeholder="Search songs, artists, moods…" autocomplete="off" aria-label="Search"><kbd>/</kbd></label>
       <a class="key ink" id="topBtn" href="#/top" title="Your most played songs (M)">Most played</a>
@@ -2004,6 +2007,22 @@ setTimeout(updCheck, 60 * 1000); setInterval(updCheck, 12 * 3600 * 1000);
 // look for new episodes in the shows you follow when the jukebox starts, then every 30 minutes
 function podCheck() { Promise.allSettled(S.pods.map(p => podLoad(p.id))).then(() => { podBadge(); if (location.hash === '#/pod') route(); }); }
 setTimeout(podCheck, 4000); setInterval(podCheck, 30 * 60 * 1000);
+
+// header: installed version and total downloads from GitHub (downloads cached 30 min)
+(function dlCount() {
+  const el = document.getElementById('dlc'); if (!el) return;
+  let c = null; try { c = JSON.parse(localStorage.getItem('dlc') || 'null'); } catch (e) {}
+  let v = '';
+  const show = () => { const n = c && c.n != null ? c.n : null; el.textContent = (v ? 'v' + v : '') + (v && n != null ? ' \u00b7 ' : '') + (n != null ? n + ' \u2193' : ''); el.title = (v ? 'You have version ' + v + '. ' : '') + (n != null ? n + ' downloads from GitHub so far' : ''); };
+  fetch('/api/update').then(r => r.json()).then(u => { v = u.current || ''; show(); }, () => {});
+  show();
+  const later = () => setTimeout(dlCount, 30 * 60e3);
+  if (c && Date.now() - c.t < 30 * 60e3) return later();
+  fetch('https://api.github.com/repos/BrightonChappy/select-and-play-jukebox/releases?per_page=100')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(rs => { c = {n: rs.reduce((a, r) => a + r.assets.reduce((b, x) => b + x.download_count, 0), 0), t: Date.now()}; show(); try { localStorage.setItem('dlc', JSON.stringify(c)); } catch (e) {} })
+    .catch(() => {}).finally(later);
+})();
 </script>
 </body>
 </html>
