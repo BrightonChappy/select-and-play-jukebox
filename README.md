@@ -4,7 +4,7 @@ A jukebox for your Windows PC. It plays the music already on your computer, plus
 
 ## ⬇️ Download
 
-### [**Click here to download Select & Play**](https://github.com/BrightonChappy/select-and-play/releases/latest/download/Select-and-Play.zip)
+### [**Click here to download Select & Play**](https://github.com/BrightonChappy/select-and-play-jukebox/releases/latest/download/Select-and-Play.zip)
 
 Works on Windows 10 and Windows 11. Free.
 

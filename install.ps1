@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # makes downloads much faster
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Repo     = 'BrightonChappy/select-and-play'
+$Repo     = 'BrightonChappy/select-and-play-jukebox'
 $AppName  = 'Select & Play'
 $Dest     = if ($env:SAP_TEST) { Join-Path $env:SAP_TEST 'Programs' } else { Join-Path $env:LOCALAPPDATA 'Programs\SelectAndPlay' }
 $Temp     = Join-Path $env:TEMP 'SelectAndPlaySetup'
