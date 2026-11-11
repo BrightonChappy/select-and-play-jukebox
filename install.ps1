@@ -7,8 +7,13 @@
 #   5. Desktop + Start menu shortcuts, and it waits in the tray (by the clock) whenever Windows starts
 # Running it again later updates the program. Your music, favourites and podcasts are kept.
 
-$ErrorActionPreference = 'Stop'
+# 'Continue', not 'Stop': in Windows PowerShell 5 a harmless warning from pip or Python on
+# stderr counts as an error under 'Stop' and would close this window without a word.
+# Real failures are checked for by hand below, and anything unexpected is caught by the trap.
+$ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'   # makes downloads much faster
+$Log = Join-Path $env:TEMP 'SelectAndPlay-install-log.txt'
+try { Start-Transcript -Path $Log -Force | Out-Null } catch {}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $Repo     = 'BrightonChappy/select-and-play-jukebox'
@@ -24,8 +29,12 @@ function Step($n, $text) { Write-Host ''; Write-Host "[$n/5] $text" -ForegroundC
 function Fail($text) {
     Write-Host ''; Write-Host "Sorry, something went wrong: $text" -ForegroundColor Red
     Write-Host 'Take a photo of this window and send it to whoever gave you the jukebox.' -ForegroundColor Red
+    Write-Host "A full record of what happened is in: $Log" -ForegroundColor Red
+    try { Stop-Transcript | Out-Null } catch {}
     Read-Host 'Press Enter to close'; exit 1
 }
+# anything unexpected: show it and wait, never just vanish
+trap { Fail ("$($_.Exception.Message) (installer line $($_.InvocationInfo.ScriptLineNumber))") }
 
 Clear-Host
 Say '=============================================' Red
@@ -43,10 +52,10 @@ if (-not ($src -and (Test-Path (Join-Path $src 'server.py')))) {
     # run from inside the zip, or on its own: fetch the newest copy from GitHub
     try {
         $zip = Join-Path $Temp 'app.zip'
-        Invoke-WebRequest "https://github.com/$Repo/archive/refs/heads/main.zip" -OutFile $zip -UseBasicParsing
+        Invoke-WebRequest "https://github.com/$Repo/archive/refs/heads/main.zip" -OutFile $zip -UseBasicParsing -ErrorAction Stop
         $unz = Join-Path $Temp 'unzipped'
         if (Test-Path $unz) { Remove-Item $unz -Recurse -Force }
-        Expand-Archive $zip -DestinationPath $unz -Force
+        Expand-Archive $zip -DestinationPath $unz -Force -ErrorAction Stop
         $src = Join-Path (Get-ChildItem $unz -Directory | Select-Object -First 1).FullName 'app'
     } catch { Fail "couldn't download the program from GitHub. Check the internet is working. ($($_.Exception.Message))" }
 }
@@ -56,6 +65,7 @@ Get-CimInstance Win32_Process -Filter "Name like 'python%'" -ErrorAction Silentl
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 Copy-Item (Join-Path $src '*') $Dest -Recurse -Force
+if (-not (Test-Path (Join-Path $Dest 'tray.py'))) { Fail "couldn't copy the program into $Dest" }
 Copy-Item $MyInvocation.MyCommand.Path (Join-Path $Dest 'install.ps1') -Force -ErrorAction SilentlyContinue
 Say "   Program is in $Dest" Green
 
@@ -94,7 +104,7 @@ if ($py) {
     if (-not $ok) {
         try {
             $exe = Join-Path $Temp 'python-setup.exe'
-            Invoke-WebRequest $PyUrl -OutFile $exe -UseBasicParsing
+            Invoke-WebRequest $PyUrl -OutFile $exe -UseBasicParsing -ErrorAction Stop
             Start-Process $exe -ArgumentList '/quiet InstallAllUsers=0 PrependPath=1 Include_test=0 Include_launcher=1' -Wait
             $py = Find-Python
         } catch {}
@@ -106,7 +116,7 @@ $pyw = Join-Path (Split-Path $py) 'pythonw.exe'
 
 # ---------------------------------------------------------------- 3. add-ons
 Step 3 'Installing the add-ons the jukebox uses (this is the slow bit)'
-if (-not $env:SAP_TEST) { & $py -m pip install --user --upgrade --quiet --disable-pip-version-check @Packages 2>&1 | Out-Null }
+if (-not $env:SAP_TEST) { & $py -m pip install --user --upgrade --quiet --disable-pip-version-check --no-warn-script-location @Packages 2>&1 | Out-Host }
 & $py -c 'import mutagen, webview, pystray, imageio_ffmpeg, PIL' 2>$null
 if ($LASTEXITCODE -ne 0) {
     # try once more and show what goes wrong
@@ -125,7 +135,7 @@ $hasWV = $wvKeys | Where-Object { (Get-ItemProperty $_ -ErrorAction SilentlyCont
 if ($hasWV) { Say '   Already there' Green } else {
     try {
         $wv = Join-Path $Temp 'webview2.exe'
-        Invoke-WebRequest $WV2Url -OutFile $wv -UseBasicParsing
+        Invoke-WebRequest $WV2Url -OutFile $wv -UseBasicParsing -ErrorAction Stop
         Start-Process $wv -ArgumentList '/silent /install' -Wait
         Say '   Installed' Green
     } catch { Say "   Couldn't install it automatically. If the jukebox window stays blank, get it from https://developer.microsoft.com/microsoft-edge/webview2/" Red }
@@ -160,5 +170,6 @@ Say '   DONE. Opening the jukebox now...' Green
 Say '=============================================' Green
 Say "It lives in the tray by the clock: click its icon to open it."
 Say "Closing the window hides it to the tray. To stop it, right-click the tray icon and choose Quit."
+try { Stop-Transcript | Out-Null } catch {}
 Start-Process $pyw -ArgumentList $runArgs -WorkingDirectory $Dest
 Start-Sleep -Seconds 6
