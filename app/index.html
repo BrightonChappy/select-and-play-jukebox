@@ -801,7 +801,7 @@ function fyPicks() {
 function renderForYou() {
   const box = $('#forYou'); if (!box) return;
   FY.list = fyPicks();
-  box.innerHTML = `<p class="sh"><span>For you</span></p>` + (FY.list.length
+  box.innerHTML = `<p class="sh"><span>Suggestions for you</span></p>` + (FY.list.length
     ? `<ul>${FY.list.map((x, i) => `<li data-fy="${i}" title="${esc(x.title)} (${esc(x.sub)})"><span class="ft">${esc(x.title)}</span><span class="fm"><span class="fp ${x.kind}">${x.kind}</span><small>${esc(x.sub)}</small></span></li>`).join('')}</ul>`
     : '<p class="empty">Play a few records and suggestions appear here.</p>');
   // show only the rows that fit in the rail
