@@ -790,7 +790,7 @@ function fyPicks() {
   if (genre) {
     const k = 'fy|radio|' + genre;
     fyFetch(k, '/api/radio/search?q=' + enc(genre.toLowerCase()), r => (Array.isArray(r) ? r : r.items || []).slice(0, 3));
-    radio = (FY.data[k] || []).slice(0, 2).map(st => ({kind: 'radio', title: st.name, sub: `${genre} · live${st.country ? ' · ' + st.country : ''}`,
+    radio = (FY.data[k] || []).slice(0, 2).map(st => ({kind: 'radio', title: st.name.replace(/^[^\p{L}\p{N}]+/u, '') || st.name, sub: `${genre} · live${st.country ? ' · ' + st.country : ''}`,
       go: () => { RADIO[st.id] = st; const a = radioRegister(st); playList(a.tracks, 0, {inOrder: true, source: {k: 'Live radio', v: st.name, d: 'for you'}}); }}));
   }
   // take turns so every kind gets a look-in

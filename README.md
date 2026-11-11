@@ -2,6 +2,8 @@
 
 A jukebox for your Windows PC. It plays the music already on your computer, plus internet radio, podcasts and free music from the Internet Archive. You pick records like on an old-fashioned wallbox: press a letter and a number (A1, B4…) and it plays.
 
+![Select & Play: the record rack in the middle, now playing and up next on the left, the selection keys, played lately and suggestions on the right](docs/screenshot.jpg)
+
 ## ⬇️ Download
 
 ### [**Click here to download Select & Play**](https://github.com/BrightonChappy/select-and-play-jukebox/releases/latest/download/Select-and-Play.zip)
