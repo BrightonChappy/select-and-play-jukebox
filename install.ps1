@@ -4,7 +4,7 @@
 #   2. Python 3.12 (if missing)   -> per-user install, no admin needed
 #   3. the Python add-ons it uses (mutagen, pywebview, imageio-ffmpeg, pillow, yt-dlp)
 #   4. Microsoft Edge WebView2 (if missing; it is already on almost every Windows 10/11 PC)
-#   5. Desktop + Start menu shortcuts (and, if you say yes, start with Windows)
+#   5. Desktop + Start menu shortcuts, and it waits in the tray (by the clock) whenever Windows starts
 # Running it again later updates the program. Your music, favourites and podcasts are kept.
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +17,7 @@ $Dest     = if ($env:SAP_TEST) { Join-Path $env:SAP_TEST 'Programs' } else { Joi
 $Temp     = Join-Path $env:TEMP 'SelectAndPlaySetup'
 $PyUrl    = 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe'
 $WV2Url   = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703'
-$Packages = @('mutagen', 'pywebview', 'imageio-ffmpeg', 'pillow', 'yt-dlp')
+$Packages = @('mutagen', 'pywebview', 'pystray', 'imageio-ffmpeg', 'pillow', 'yt-dlp')
 
 function Say($text, $colour = 'White') { Write-Host $text -ForegroundColor $colour }
 function Step($n, $text) { Write-Host ''; Write-Host "[$n/5] $text" -ForegroundColor Yellow }
@@ -107,11 +107,11 @@ $pyw = Join-Path (Split-Path $py) 'pythonw.exe'
 # ---------------------------------------------------------------- 3. add-ons
 Step 3 'Installing the add-ons the jukebox uses (this is the slow bit)'
 if (-not $env:SAP_TEST) { & $py -m pip install --user --upgrade --quiet --disable-pip-version-check @Packages 2>&1 | Out-Null }
-& $py -c 'import mutagen, webview, imageio_ffmpeg, PIL' 2>$null
+& $py -c 'import mutagen, webview, pystray, imageio_ffmpeg, PIL' 2>$null
 if ($LASTEXITCODE -ne 0) {
     # try once more and show what goes wrong
     & $py -m pip install --user --upgrade @Packages
-    & $py -c 'import mutagen, webview, imageio_ffmpeg, PIL'
+    & $py -c 'import mutagen, webview, pystray, imageio_ffmpeg, PIL'
     if ($LASTEXITCODE -ne 0) { Fail 'the add-ons did not install (see the messages above).' }
 }
 Say '   Add-ons ready' Green
@@ -150,16 +150,15 @@ Make-Shortcut (Join-Path $startMenu "Uninstall $AppName.lnk") 'powershell.exe' (
 Make-Shortcut (Join-Path $startMenu "Update $AppName.lnk") 'powershell.exe' ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $Dest 'install.ps1') + '"') $icon
 Say '   Desktop and Start menu shortcuts added' Green
 $startup = Join-Path ([Environment]::GetFolderPath('Startup')) "$AppName.lnk"
-if (-not (Test-Path $startup)) {
-    Write-Host ''
-    $ans = Read-Host 'Start the jukebox when Windows starts? Type Y for yes, or just press Enter for no'
-    if ($ans -match '^[yY]') { Make-Shortcut $startup $pyw $runArgs $icon; Say '   It will start with Windows' Green }
-}
+# starts hidden in the tray when Windows starts (turn off in Task Manager > Startup apps)
+Make-Shortcut $startup $pyw ($runArgs + ' --hidden') $icon
+Say '   It will wait in the tray (by the clock) whenever Windows starts' Green
 
 Write-Host ''
 Say '=============================================' Green
 Say '   DONE. Opening the jukebox now...' Green
 Say '=============================================' Green
-Say "Next time, open it from the '$AppName' icon on your desktop."
+Say "It lives in the tray by the clock: click its icon to open it."
+Say "Closing the window hides it to the tray. To stop it, right-click the tray icon and choose Quit."
 Start-Process $pyw -ArgumentList $runArgs -WorkingDirectory $Dest
 Start-Sleep -Seconds 6

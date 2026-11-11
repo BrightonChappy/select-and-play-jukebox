@@ -304,9 +304,9 @@ def scan():
                         or (artists.pop() if len(artists) == 1 else None)
                         or (top if top and top != "Various Artists" else "Various Artists"))
         tag_album = _most([t["_alb"] for t in album_tracks])
-        tag_disc = re.search(r"[\[(]?(?:disc|disk|cd)\s*(\d+)[\])]?", tag_album or "", re.I)
+        tag_disc = re.search(r"[\[(]?\b(?:disc|disk|cd)\s*(\d+)\b[\])]?", tag_album or "", re.I)
         if tag_album:
-            tag_album = re.sub(r"\s*[\[(]?(?:disc|disk|cd)\s*\d+[\])]?\s*$", "", tag_album, flags=re.I).strip(" -:") or tag_album
+            tag_album = re.sub(r"\s*[\[(]?\b(?:disc|disk|cd)\s*\d+\b[\])]?\s*$", "", tag_album, flags=re.I).strip(" -:") or tag_album
         albums.append({
             "id": album_id, "path": rel_dir, "artist": album_artist,
             "title": tag_album or (re.sub(r"\s*Disc \d+\s*$", "", folder, flags=re.I).strip() or folder).replace("_ ", ": "),
@@ -327,6 +327,17 @@ def scan():
     albums, merged = merge_discs(albums)
     for t in tracks:
         t["album"] = merged.get(t["id"], t["album"])
+    # the same album in two ticked folders (a backup copy, an old OneDrive folder...) shows once
+    # (keeps whichever copy has the most songs)
+    best = {}
+    for a in albums:
+        k = (a["artist"].lower(), a["title"].lower())
+        if k not in best or len(a["tracks"]) > len(best[k]["tracks"]):
+            best[k] = a
+    keep_ids = {id(a) for a in best.values()}
+    dropped = {t for a in albums if id(a) not in keep_ids for t in a["tracks"]}
+    albums = [a for a in albums if id(a) in keep_ids]
+    tracks = [t for t in tracks if t["id"] not in dropped]
     apply_curation(albums)
     library["albums"], library["tracks"] = albums, tracks
     track_by_id.clear()
@@ -339,7 +350,7 @@ def scan():
 def merge_discs(albums):
     """Disc 1 / Disc 2 folders (and bonus editions like "[UK]") of one album become one record.
     The first disc keeps its id, so its moods and history carry over; songs keep their own ids."""
-    parent = lambda a: a["path"].rsplit("/", 2)[0] if re.search(r"(disc|disk|cd)\s*\d+\s*$", a["folder"], re.I) else a["path"].rsplit("/", 1)[0]
+    parent = lambda a: a["path"].rsplit("/", 2)[0] if re.search(r"\b(disc|disk|cd)\s*\d+\s*$", a["folder"], re.I) else a["path"].rsplit("/", 1)[0]
     base = lambda a: (parent(a).lower(), a["artist"].lower(), re.sub(r"\s*\[[^\]]*\]\s*", " ", a["title"]).strip().lower())
     groups = {}
     for a in albums:

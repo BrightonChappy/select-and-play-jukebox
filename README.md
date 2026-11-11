@@ -17,8 +17,9 @@ Works on Windows 10 and Windows 11. Free.
 3. A new folder opens. **Double-click `Install Select and Play`.**
 4. Windows may show a blue box saying **"Windows protected your PC"**. That's normal for small free programs. Click **More info**, then **Run anyway**.
 5. A black window opens and sets everything up on its own. It installs anything missing (Python and a few add-ons). **Leave it open until it says DONE.**
-6. It asks if you want the jukebox to start when Windows starts. Type **Y** and press Enter for yes, or just press **Enter** for no.
-7. The jukebox opens. Next time, use the **Select & Play** icon on your desktop.
+6. The jukebox opens. From now on it waits in the **tray** (the little icons by the clock) every time Windows starts. **Click its icon to open it.**
+
+> Can't see the icon by the clock? Click the small **^** arrow next to the clock. Windows sometimes tucks new icons in there. You can drag it out onto the taskbar.
 
 ## The first time it opens
 
@@ -43,9 +44,23 @@ Press **Start the jukebox**. You can change any of this later under **Music fold
 | Podcasts | **Podcasts** (or press **P**). Search for a show and press **+ Follow**. New episodes get a blue **New Episode** tag, and it suggests episodes you might like. |
 | Internet radio and free music | **Internet** (or press **I**) |
 | Favourites | The ♥ next to any song |
-| Close it | Close the window. It keeps running quietly. Open it again from the desktop icon. |
+| Open it | Click the jukebox icon in the tray by the clock (or the desktop icon) |
+| Hide it | Close the window with the **X**. The music keeps playing, and it goes back to the tray. |
+| Quick controls | Right-click the tray icon: Play / Pause, Next, Previous |
+| Turn it off completely | Right-click the tray icon and choose **Quit** |
+| Stop it starting with Windows | Task Manager (Ctrl+Shift+Esc), then **Startup apps**, then right-click **Select & Play** and choose **Disable** |
 
 Very big collections are fine. After record Z0 the codes carry on as AA1, AB1 and so on.
+
+## Is this safe?
+
+Yes. Here's how to tell:
+
+- **Virus scan:** the download has been checked by about 70 antivirus programs on VirusTotal. *(The scan link is added below once the scan is done.)*
+- **You can read every line.** Everything it runs is on this page in plain text: the installer is `install.ps1`, and the jukebox is in the `app` folder. There are no hidden programs inside.
+- **What the installer adds:** Python (the free programming language, from python.org), six free add-ons (`mutagen`, `pywebview`, `pystray`, `imageio-ffmpeg` and `pillow`, plus `yt-dlp` for the Videos page), Microsoft's WebView2 if it's missing, and the jukebox itself. It doesn't need administrator access and doesn't change system settings.
+- **Why Windows shows a warning:** Windows warns about any program that hasn't been downloaded by lots of people yet, or that hasn't been through Microsoft's paid signing. The warning isn't because anything harmful was found.
+- **Your music is never changed, moved or deleted.** Uninstalling leaves your music exactly where it was.
 
 ## Updating
 

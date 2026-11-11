@@ -1,0 +1,11 @@
+SELECT & PLAY - jukebox for Windows
+
+To install:
+ 1. Double-click "Install Select and Play".
+ 2. If a blue box says "Windows protected your PC", click "More info", then "Run anyway".
+ 3. Leave the black window open until it says DONE. The jukebox then opens.
+
+After that it waits in the tray (the icons by the clock). Click its icon to open it.
+
+Full instructions, help and the "Is this safe?" section:
+https://github.com/BrightonChappy/select-and-play-jukebox
