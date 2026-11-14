@@ -655,7 +655,7 @@ audio.addEventListener('timeupdate', () => {
   if (sleepAt) {
     const left = sleepAt - Date.now();
     $('#sleepRead').textContent = left > 0 ? fmt(left / 1000) : '';
-    if (left < 10000) audio.volume = Math.max(0, S.settings.volume * left / 10000);
+    if (left < 10000) applyVol(Math.max(0, left / 10000));
     if (left <= 0) { audio.pause(); setSleep(null); toast('Sleep timer — goodnight'); }
   }
   if (Math.floor(c) % 5 === 0) persist();
@@ -665,10 +665,16 @@ for (const s of ['#seek', '#fseek']) {
   el.addEventListener('input', () => { el._drag = true; el.style.setProperty('--p', el.value / 10 + '%'); });
   el.addEventListener('change', () => { el._drag = false; if (vOn()) return vSeek(el.value / 1000); if (isFinite(audio.duration) && audio.duration) audio.currentTime = el.value / 1000 * audio.duration; });
 }
-$('#vol').addEventListener('input', e => { S.settings.volume = e.target.value / 100; audio.volume = S.settings.volume; renderVol(); save(); });
+// one volume for everything that makes sound: the music, a clip, and a YouTube player
+function applyVol(f = 1) {
+  const v = S.settings.volume * f; audio.volume = v;
+  const vv = $('#vVid'); if (vv) vv.volume = v;
+  try { if (YTP && YTP.setVolume) YTP.setVolume(Math.round(v * 100)); } catch {}
+}
+$('#vol').addEventListener('input', e => { S.settings.volume = e.target.value / 100; applyVol(); renderVol(); save(); });
 function setSleep(v) {
   sleepEnd = v === 'end'; sleepAt = typeof v === 'number' ? Date.now() + v * 60000 : null;
-  audio.volume = S.settings.volume; $('#sleepRead').textContent = sleepEnd ? 'end' : ''; renderModes();
+  applyVol(); $('#sleepRead').textContent = sleepEnd ? 'end' : ''; renderModes();
 }
 function persist() { try { localStorage.setItem('jb-session', JSON.stringify({Q, qi, t: audio.currentTime, SRC, singleSong})); } catch {} }
 function restore() {
@@ -1536,7 +1542,7 @@ function vShow(it, direct) {
       if (V.list[V.i] !== it) return;
       YTP = new YT.Player('vYT', {videoId: it.id, width: '100%', height: '100%',
         playerVars: {autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1, origin: location.origin},
-        events: {onStateChange: e => { if (e.data === 1) musicHold(); renderPlay(); if (e.data === 0) vNext(true); },
+        events: {onReady: e => { try { e.target.setVolume(Math.round(S.settings.volume * 100)); } catch {} }, onStateChange: e => { if (e.data === 1) musicHold(); renderPlay(); if (e.data === 0) vNext(true); },
                  onError: () => { if (V.list[V.i] === it) { toast('Playing this one through the jukebox'); vShow(it, true); } }}});
     }, () => vShow(it, true));
     return;
