@@ -514,6 +514,14 @@ def sync_loop():
 # ---------------------------------------------------------------- updates: is there a newer release on GitHub?
 REPO = "BrightonChappy/select-and-play-jukebox"
 update_cache = {}
+# set by autoupdate.py after it installs a new version; shown once as "Updated to ..."
+JUST_UPDATED = None
+try:
+    with open(os.path.join(DATA_DIR, "just_updated.json"), encoding="utf8") as _f:
+        JUST_UPDATED = json.load(_f)
+    os.remove(os.path.join(DATA_DIR, "just_updated.json"))
+except (OSError, ValueError):
+    pass
 
 
 def _ver(v):
@@ -1266,6 +1274,10 @@ class Handler(BaseHTTPRequestHandler):
             except (HTTPError, URLError, OSError, ValueError):
                 url = None
             return self.relay(url, live=True) if url else self.send_bytes(b"station not found", "text/plain", 404)
+        if path == "/api/update/just":
+            global JUST_UPDATED
+            out, JUST_UPDATED = JUST_UPDATED, None
+            return self.send_json(out or {})
         if path == "/api/update":
             if "fresh" in parse_qs(urlparse(self.path).query):
                 update_cache.clear()  # the button asks GitHub now, not the 6-hour copy

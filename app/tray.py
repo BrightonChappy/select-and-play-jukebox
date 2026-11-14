@@ -187,6 +187,17 @@ def main():
             kernel32.SetEvent(event)
         return
 
+    # a newer version on GitHub? put it in place before anything starts, then run the new copy
+    try:
+        import autoupdate
+        if autoupdate.run(HERE, server.DATA_DIR):
+            import subprocess
+            kernel32.CloseHandle(event)  # so the new copy doesn't think one is already running
+            subprocess.Popen([sys.executable, os.path.join(HERE, "tray.py")] + sys.argv[1:], cwd=HERE, close_fds=True)
+            return
+    except Exception:
+        pass  # never let an update problem stop the jukebox opening
+
     port = start_server()
     url = f"http://127.0.0.1:{port}/"
     window = webview.create_window(app_name(), url, width=1320, height=860, min_size=(900, 600),

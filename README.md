@@ -72,7 +72,9 @@ Yes. Here's how to tell:
 
 ## Updating
 
-The jukebox tells you itself. About once a day it checks for a new version, and if there is one a bar appears at the top: **"New version available"**. Click **Update now**. A window opens for about a minute, then the jukebox restarts on the new version. Or click **Later**, and it won't ask again until the version after that.
+From version 1.4 it updates itself. Each time the jukebox starts (for example when Windows starts), it checks for a new version and installs it before the window opens, so your music is never cut off. A message says "Updated to version ..." when it has. If anything goes wrong it carries on with the version you had.
+
+Don't want that? Open **Music folders** and turn **Install updates automatically** off. Then a bar appears at the top when there is a new version: click **Update now** (a window opens for about a minute, then the jukebox restarts), or **Later**.
 
 You can also update at any time: open the Start menu and click **Update Select & Play**.
 

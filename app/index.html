@@ -1047,7 +1047,8 @@ function updSection() {
   return `<h2 class="sub-h">Version and updates</h2>
     <p class="whynote">You have version <b>${esc(u?.current || '…')}</b>. ${line}</p>
     <div class="acts">${u?.newer ? '<button class="key red" data-action="updnow">Update now</button>' : `<button class="key" data-action="updcheck" ${UPD.state === 'checking' ? 'disabled' : ''}>Check for updates</button>`}</div>
-    <p class="whynote">Updating takes about a minute and keeps your music, favourites, play lists and podcasts.</p>`;
+    <div class="acts"><button class="key ${S.settings.autoUpdate !== false ? 'ink' : ''}" data-action="autoupd" aria-pressed="${S.settings.autoUpdate !== false}">Install updates automatically: ${S.settings.autoUpdate !== false ? 'On ✓' : 'Off'}</button></div>
+    <p class="whynote">When this is on, a new version installs by itself the next time the jukebox starts, so it never stops your music. Updating keeps your music, favourites, play lists and podcasts.</p>`;
 }
 function updCheckNow() {
   UPD.state = 'checking'; route();
@@ -1862,6 +1863,7 @@ document.addEventListener('click', e => {
     if (a === 'inorder') playList(SCOPE.ids, 0, {inOrder: true, source: {...SCOPE.source, d: 'in order'}});
     if (a === 'surprise') { const al = pick(ALB.filter(x => x.genre !== 'Spoken Word')); location.hash = '#/album/' + al.id; playList(al.tracks, 0, {inOrder: true, source: {k: 'Surprise', v: al.title, d: 'plays through in order'}}); }
     if (a === 'covers') { S.settings.covers = !S.settings.covers; save(); route(); }
+    if (a === 'autoupd') { S.settings.autoUpdate = S.settings.autoUpdate === false; save(); route(); toast(S.settings.autoUpdate ? 'Updates will install by themselves' : 'Updates will wait for you to press Update now'); }
     if (a === 'newPl') newPlaylist();
     if (a === 'netmore') netMore(d.key, el);
     if (a === 'podfollow') { e.stopPropagation(); podFollow(d.sid); }
@@ -2010,6 +2012,8 @@ function updCheck() {
   }).catch(() => {});
 }
 setTimeout(updCheck, 60 * 1000); setInterval(updCheck, 12 * 3600 * 1000);
+// just updated by itself? say so once
+setTimeout(() => fetch('/api/update/just').then(r => r.json()).then(u => { if (u.to) toast(`Updated to version ${u.to}${u.notes ? ': ' + u.notes.split('\n')[0] : ''}`); }).catch(() => {}), 3000);
 // look for new episodes in the shows you follow when the jukebox starts, then every 30 minutes
 function podCheck() { Promise.allSettled(S.pods.map(p => podLoad(p.id))).then(() => { podBadge(); if (location.hash === '#/pod') route(); }); }
 setTimeout(podCheck, 4000); setInterval(podCheck, 30 * 60 * 1000);
