@@ -1929,16 +1929,9 @@ $('#clearQ').onclick = () => { const removed = Q.splice(qi + 1); renderQueue(); 
 $('#saveQ').onclick = () => newPlaylist(Q.slice());
 $('#disc').onclick = () => { if (vOn()) return $('#vroom').classList.add('big'); if (Q[qi]) { $('#full').classList.add('open'); renderNP(); } };
 $('#fullClose').onclick = () => $('#full').classList.remove('open');
-// Exit: first press asks, second press closes everything
-let exitTimer;
+// Exit: closes everything straight away
 $('#exitBtn').onclick = () => {
-  const b = $('#exitBtn');
-  if (!b.classList.contains('red')) {
-    b.classList.add('red'); b.textContent = 'Really exit?';
-    clearTimeout(exitTimer); exitTimer = setTimeout(() => { b.classList.remove('red'); b.textContent = 'Exit'; }, 4000);
-    return;
-  }
-  clearTimeout(exitTimer); b.textContent = 'Closing…'; audio.pause();
+  $('#exitBtn').textContent = 'Closing…'; audio.pause();
   clearTimeout(saveTimer);  // save your place now, then close
   const bye = () => fetch('/api/quit', {method: 'POST'}).catch(() => {});
   try { netKeep(); } catch {}
