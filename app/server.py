@@ -314,7 +314,7 @@ def scan():
             "folder": folder, "disc": int(disc.group(1)) if disc else int(tag_disc.group(1)) if tag_disc else None,
             "tagGenre": max(set(genres), key=genres.count).strip() if genres else None,
             "year": max(set(years), key=years.count) if years else None,
-            "hasArt": bool(cover or art_src),
+            "hasArt": True,  # no picture in the folder? /art looks one up online (online_cover)
             "_cover": cover, "_artSrc": art_src,
             "tracks": [t["id"] for t in album_tracks],
             "duration": round(sum(t["dur"] for t in album_tracks)),
@@ -706,6 +706,69 @@ def ia_get(url, params=None, timeout=20):
         url += "?" + urlencode(params, doseq=True)
     with urlopen(Request(url, headers=UA), timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
+
+
+COVER_DIR = os.path.join(DATA_DIR, "covers")
+cover_lock = threading.Lock()
+
+
+def _cover_key(text):
+    text = re.sub(r"[\[(][^\])]*[\])]", " ", text or "")              # (Deluxe Edition), [Remastered]
+    text = re.sub(r"\b(disc|disk|cd)\s*\d+\b", " ", text, flags=re.I)
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def online_cover(a):
+    """Cover for an album with none in its folder: Apple's music directory, kept in the data folder.
+    A miss is remembered for a week so the directory isn't asked again on every page."""
+    os.makedirs(COVER_DIR, exist_ok=True)
+    jpg = os.path.join(COVER_DIR, a["id"] + ".jpg")
+    miss = os.path.join(COVER_DIR, a["id"] + ".none")
+    if os.path.isfile(jpg):
+        return jpg
+    if os.path.isfile(miss) and time.time() - os.path.getmtime(miss) < 7 * 86400:
+        return None
+    artist = a.get("artist") or ""
+    if artist.lower() in ("various artists", "unknown artist", "various"):
+        artist = ""
+    artist = re.split(r",|&|/| feat\.? | and ", artist)[0].strip()  # "Bocelli, Cedolins" -> "Bocelli"
+    title = a.get("title") or a.get("folder") or ""
+    want = _cover_key(title)
+    if not want:
+        return None
+    with cover_lock:  # one lookup at a time: Apple turns away bursts
+        if os.path.isfile(jpg):
+            return jpg
+        found = None
+        try:
+            short = re.sub(r"[(\[].*", "", title).strip()
+            res = ia_get(ITUNES + "/search", {"term": (artist + " " + short).strip(),
+                                              "entity": "album", "limit": 10, "country": "GB"}, timeout=10).get("results") or []
+            for r in res:
+                got = _cover_key(r.get("collectionName"))
+                if not got or not (got.startswith(want) or want.startswith(got)):
+                    continue
+                if artist and _cover_key(artist) not in _cover_key(r.get("artistName")) and \
+                        _cover_key(r.get("artistName")) not in _cover_key(artist):
+                    continue
+                found = (r.get("artworkUrl100") or "").replace("100x100bb", "600x600bb")
+                if found:
+                    break
+            if found:
+                with urlopen(Request(found, headers=UA), timeout=15) as r:
+                    data = r.read()
+                if data[:3] == b"\xff\xd8\xff" or data[:4] == b"\x89PNG":
+                    with open(jpg, "wb") as f:
+                        f.write(data)
+                    return jpg
+        except (HTTPError, URLError, OSError, ValueError):
+            time.sleep(1)
+            return None  # offline or turned away: try again next time
+        finally:
+            time.sleep(0.4)
+        with open(miss, "w") as f:
+            f.write("")
+        return None
 
 
 def _text(v):
@@ -1266,6 +1329,9 @@ class Handler(BaseHTTPRequestHandler):
                 data, mime = embedded_art(os.path.join(MUSIC_ROOT, a["_artSrc"]))
                 if data:
                     return self.send_bytes(data, mime, extra={"Cache-Control": "max-age=86400"})
+            found = online_cover(a)
+            if found:
+                return self.send_file(found, "image/jpeg")
             return self.not_found()
         m = re.match(r"^/api/lyrics/(\w+)$", path)
         if m:
