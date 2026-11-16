@@ -1931,7 +1931,7 @@ $('#disc').onclick = () => { if (vOn()) return $('#vroom').classList.add('big');
 $('#fullClose').onclick = () => $('#full').classList.remove('open');
 // Exit: closes everything straight away
 $('#exitBtn').onclick = () => {
-  $('#exitBtn').textContent = 'Closing…'; audio.pause();
+  audio.pause();
   clearTimeout(saveTimer);  // save your place now, then close
   const bye = () => fetch('/api/quit', {method: 'POST'}).catch(() => {});
   try { netKeep(); } catch {}
