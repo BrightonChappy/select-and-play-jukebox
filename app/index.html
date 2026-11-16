@@ -561,7 +561,7 @@ const SVG = {
 const ic = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SVG[n]}</svg>`;
 
 // ───────────────────────────────────────────── data & state
-let ALB = [], TR = [], MOODS = {}, byT = {}, byA = {}, byCode = {}, byCodeLetters = new Set(), byCodePrefix = new Set();
+let LIBT = new Set(), ALB = [], TR = [], MOODS = {}, byT = {}, byA = {}, byCode = {}, byCodeLetters = new Set(), byCodePrefix = new Set();
 let S = {favs: {}, plays: {}, lastPlayed: {}, albumPlayed: {}, playlists: [], pods: [], podPos: {}, podDone: {}, podEps: {}, albumMoods: {}, trackMoods: {}, settings: {volume: .8, shuffle: false, repeat: 'off', autoplay: true, covers: false}};
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWYZ';
 let LIB_INFO = {};
@@ -992,7 +992,7 @@ function songsView(title, sub, ids, kind, opts = {}) {
 }
 const viewFavs = () => songsView('Favourites', 'Songs you have hearted.', Object.keys(S.favs).filter(id => byT[id]).sort((a, b) => S.favs[b] - S.favs[a]), 'Favourites');
 const viewRecent = () => songsView('Recently played', 'The last hundred songs you listened to.', Object.keys(S.lastPlayed).filter(id => byT[id]).sort((a, b) => S.lastPlayed[b] - S.lastPlayed[a]).slice(0, 100), 'Recent');
-const viewTop = () => songsView('Most played', 'Your top fifty. A song counts once you have heard 30 seconds of it.', Object.keys(S.plays).filter(id => byT[id]).sort((a, b) => S.plays[b] - S.plays[a] || (S.lastPlayed[b] || 0) - (S.lastPlayed[a] || 0)).slice(0, 50), 'Most played', {counts: true});
+const viewTop = () => songsView('Most played', 'Your top fifty. A song counts once you have heard 30 seconds of it.', Object.keys(S.plays).filter(id => byT[id] && LIBT.has(id) && playable(byT[id])).sort((a, b) => S.plays[b] - S.plays[a] || (S.lastPlayed[b] || 0) - (S.lastPlayed[a] || 0)).slice(0, 50), 'Most played', {counts: true});
 function viewPlaylists() {
   setScope([...new Set(S.playlists.flatMap(p => p.tracks))], 'Play lists', 'all play lists');
   return `<div class="phead"><div><h1>Play lists</h1><p>Make one from any song’s ⋯ menu, or save the current play list.</p></div><div class="acts"><button class="key red" data-action="newPl">New play list</button></div></div>
@@ -1098,7 +1098,7 @@ function viewStats() {
   const total = TR.reduce((s, t) => s + t.dur, 0), plays = Object.values(S.plays).reduce((s, n) => s + n, 0);
   const moodN = Object.keys(MOODS).map(m => [m, TR.filter(t => trackMoods(t).includes(m)).length, moodColor(m)]).sort((a, b) => b[1] - a[1]);
   const gN = genres().map(([g]) => [g, TR.filter(t => byA[t.album].genre === g).length]).sort((a, b) => b[1] - a[1]);
-  const aP = {}; Object.entries(S.plays).forEach(([id, n]) => { const t = byT[id]; if (t) aP[t.artist] = (aP[t.artist] || 0) + n; });
+  const aP = {}; Object.entries(S.plays).forEach(([id, n]) => { const t = byT[id]; if (t && LIBT.has(id) && playable(t)) aP[t.artist] = (aP[t.artist] || 0) + n; });
   const topA = Object.entries(aP).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const bars = rows => { const mx = Math.max(1, ...rows.map(r => r[1])); return `<div class="bars">${rows.map(([k, v, sw]) => `<div class="bar"><span>${esc(k)}</span><div><i style="width:${v / mx * 100}%;${sw ? '--sw:' + sw : ''}"></i></div><em>${v}</em></div>`).join('')}</div>`; };
   return `<div class="phead"><div><h1>Stats</h1><p>What’s in the box, and what you’ve played.</p></div><div class="acts"><button class="key" data-action="rescan">Look for new songs</button><a class="key" href="#/setup">Music folders</a></div></div>
@@ -1985,7 +1985,7 @@ new ResizeObserver(panelH).observe($('#panel')); RAILS.addEventListener('change'
 // ───────────────────────────────────────────── boot
 async function boot(again) {
   const [lib, st] = await Promise.all([fetch('/api/library').then(r => r.json()), fetch('/api/state').then(r => r.json()).catch(() => ({}))]);
-  MOODS = lib.moodDefs; TR = lib.tracks; LIB_INFO = lib;
+  MOODS = lib.moodDefs; TR = lib.tracks; LIBT = new Set(TR.map(t => t.id)); LIB_INFO = lib;
   setName(lib.name);
   // codes run in artist order, like a real wallbox: A1–A9, A0, B1…
   ALB = lib.albums.slice().sort((a, b) => (a.artist === 'Various Artists') - (b.artist === 'Various Artists') || a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title) || (a.disc || 0) - (b.disc || 0));
