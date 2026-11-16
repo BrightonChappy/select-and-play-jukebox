@@ -494,7 +494,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
       <canvas id="viz"></canvas>
       <div class="prog"><span id="fCur">0:00</span><input type="range" id="fseek" min="0" max="1000" value="0" aria-label="Seek"><span id="fDur">0:00</span></div>
       <div class="ctl">
-        <button class="key" data-k="prev">◀◀</button><button class="key red" data-k="toggle" id="fPlay">Play</button><button class="key" data-k="next">▶▶</button><button class="key" data-k="back" title="Back 20 seconds">-20s</button><button class="key" data-k="fwd" title="Forward 20 seconds">+20s</button>
+        <button class="key" data-k="back" title="Back 20 seconds">-20s</button><button class="key" data-k="prev">◀◀</button><button class="key red" data-k="toggle" id="fPlay">Play</button><button class="key" data-k="next">▶▶</button><button class="key" data-k="fwd" title="Forward 20 seconds">+20s</button>
         <button class="key" id="fOne">Stop after this</button><button class="key" id="fFav">Favourite</button><button class="key" id="fLyr">Lyrics</button>
       </div>
       <div class="lyr" id="fLyrics"></div>
@@ -517,10 +517,10 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
     <div class="side" id="sideNext" aria-label="Up next"></div>
     <div class="side" id="sideRecent" aria-label="Played lately"></div>
     <div class="transport">
+      <button class="key fwd" data-k="back" title="Back 20 seconds">-20s</button>
       <button class="key" data-k="prev" title="Previous (Shift+←)">◀◀</button>
       <button class="key red play" data-k="toggle" id="playBtn" title="Play / pause (Space)">▶</button>
       <button class="key" data-k="next" title="Next (Shift+→)">▶▶</button>
-      <button class="key fwd" data-k="back" title="Back 20 seconds">-20s</button>
       <button class="key fwd" data-k="fwd" title="Forward 20 seconds">+20s</button>
     </div>
     <div class="selector" aria-label="Selector keys">
