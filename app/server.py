@@ -346,6 +346,7 @@ def scan():
     album_by_id.clear()
     album_by_id.update({a["id"]: a for a in albums})
     print(f"Library: {len(albums)} albums, {len(tracks)} tracks")
+    fetch_covers(albums)
 
 
 def merge_discs(albums):
@@ -718,57 +719,168 @@ def _cover_key(text):
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
-def online_cover(a):
-    """Cover for an album with none in its folder: Apple's music directory, kept in the data folder.
-    A miss is remembered for a week so the directory isn't asked again on every page."""
+MB_UA = {"User-Agent": "SelectAndPlay/1.4 ( https://github.com/BrightonChappy/select-and-play-jukebox )", "Accept": "application/json"}
+
+
+def _same_artist(a, b):
+    """'Callas Maria' and 'Maria Callas', 'Puccini, Giacomo' and 'Giacomo Puccini' all count."""
+    skip = {"the", "and", "orchestra", "orchestre", "philharmonic", "symphony", "chorus", "choir", "coro", "band", "his", "her"}
+    wa = {w for w in re.findall(r"[a-z0-9]+", a.lower()) if len(w) > 2 and w not in skip}
+    wb = {w for w in re.findall(r"[a-z0-9]+", b.lower()) if len(w) > 2 and w not in skip}
+    return bool(wa & wb) or _cover_key(a) in _cover_key(b) or _cover_key(b) in _cover_key(a)
+
+
+def _cover_hits(artist, title):
+    """(album name, artist name, picture url) candidates, best sources first."""
+    from urllib.parse import quote as q
+    tries = []
+    if artist:
+        tries.append(("dz", 'artist:"%s" album:"%s"' % (artist, title)))
+    tries.append(("dz", (artist + " " + title).strip()))
+    tries.append(("it", (artist + " " + title).strip()))
+    tries.append(("mb", 'releasegroup:"%s"' % title.replace('"', "") + (' AND artist:"%s"' % artist.replace('"', "") if artist else "")))
+    for src, term in tries:
+        try:
+            if src == "dz":
+                d = ia_get("https://api.deezer.com/search/album?limit=10&q=" + q(term), timeout=10)
+                for r in d.get("data") or []:
+                    yield r.get("title"), (r.get("artist") or {}).get("name"), r.get("cover_xl") or r.get("cover_big")
+            elif src == "mb":  # MusicBrainz + Cover Art Archive: good for older albums and compilations
+                time.sleep(1.1)  # MusicBrainz allows one request a second
+                req = Request("https://musicbrainz.org/ws/2/release-group/?fmt=json&limit=5&query=" + q(term), headers=MB_UA)
+                with urlopen(req, timeout=10) as r:
+                    d = json.loads(r.read().decode("utf-8"))
+                for g in d.get("release-groups") or []:
+                    by = " ".join(c.get("name", "") for c in g.get("artist-credit") or [] if isinstance(c, dict))
+                    yield g.get("title"), by, "https://coverartarchive.org/release-group/%s/front-500" % g.get("id")
+            else:
+                d = ia_get(ITUNES + "/search", {"term": term, "entity": "album", "limit": 10, "country": "GB"}, timeout=10)
+                for r in d.get("results") or []:
+                    yield r.get("collectionName"), r.get("artistName"), (r.get("artworkUrl100") or "").replace("100x100bb", "600x600bb")
+        except (HTTPError, URLError, OSError, ValueError):
+            continue  # that source is busy or offline: try the next
+
+
+def online_cover(a, wait=True):
+    """Cover for an album with none in its folder, found online and kept in the data folder.
+    A miss is remembered for a week so the internet isn't asked again on every page."""
     os.makedirs(COVER_DIR, exist_ok=True)
     jpg = os.path.join(COVER_DIR, a["id"] + ".jpg")
-    miss = os.path.join(COVER_DIR, a["id"] + ".none")
+    miss = os.path.join(COVER_DIR, a["id"] + ".miss")
     if os.path.isfile(jpg):
         return jpg
     if os.path.isfile(miss) and time.time() - os.path.getmtime(miss) < 7 * 86400:
         return None
-    artist = a.get("artist") or ""
-    if artist.lower() in ("various artists", "unknown artist", "various"):
-        artist = ""
-    artist = re.split(r",|&|/| feat\.? | and ", artist)[0].strip()  # "Bocelli, Cedolins" -> "Bocelli"
-    title = a.get("title") or a.get("folder") or ""
-    want = _cover_key(title)
-    if not want:
-        return None
-    with cover_lock:  # one lookup at a time: Apple turns away bursts
+    if not cover_lock.acquire(timeout=20 if wait else 0.01):
+        return None  # another lookup is running; the background pass will get this one
+    try:
         if os.path.isfile(jpg):
             return jpg
-        found = None
-        try:
-            short = re.sub(r"[(\[].*", "", title).strip()
-            res = ia_get(ITUNES + "/search", {"term": (artist + " " + short).strip(),
-                                              "entity": "album", "limit": 10, "country": "GB"}, timeout=10).get("results") or []
-            for r in res:
-                got = _cover_key(r.get("collectionName"))
-                if not got or not (got.startswith(want) or want.startswith(got)):
-                    continue
-                if artist and _cover_key(artist) not in _cover_key(r.get("artistName")) and \
-                        _cover_key(r.get("artistName")) not in _cover_key(artist):
-                    continue
-                found = (r.get("artworkUrl100") or "").replace("100x100bb", "600x600bb")
-                if found:
-                    break
-            if found:
-                with urlopen(Request(found, headers=UA), timeout=15) as r:
+        artist = a.get("artist") or ""
+        if artist.lower() in ("various artists", "unknown artist", "various", "artiste inconnu", "unbekannter kunstler", "unbekannter künstler"):
+            artist = ""
+        artist = re.split(r"&|/|;| feat\.? | and ", artist)[0].strip()
+        if "," in artist and len(artist.split(",")[0].split()) > 1:
+            artist = artist.split(",")[0].strip()                   # "Bocelli, Cedolins" -> "Bocelli" (not "Puccini, Giacomo")
+        title = a.get("title") or a.get("folder") or ""
+        if artist and title.lower().startswith(artist.lower() + " - "):
+            title = title[len(artist) + 3:]                            # "Moby - The Observer"
+        title = re.sub(r"\s*\b(disc|disk|cd)\s*\d+\s*$", "", title, flags=re.I).strip()
+        short = re.sub(r"\s*[(\[].*", "", title).strip() or title
+        want, who = _cover_key(short), _cover_key(artist)
+        if not want or want in ("unknownalbum", "untitled", "unknown"):
+            return None
+        asked = 0
+        for name, by, url in _cover_hits(artist, short):
+            asked += 1
+            got, gotby = _cover_key(name), _cover_key(by)
+            if not url or got != want:  # exact name (editions in brackets aside): "Carmen" isn't "Carmen Jones"
+                continue
+            if who and by and not _same_artist(artist, by):
+                continue
+            if not who and _cover_key(by) not in ("variousartists", "various", "variousartist", ""):
+                continue  # a compilation: someone else's album with the same name won't do
+            try:
+                with urlopen(Request(url, headers=UA), timeout=15) as r:
                     data = r.read()
-                if data[:3] == b"\xff\xd8\xff" or data[:4] == b"\x89PNG":
-                    with open(jpg, "wb") as f:
-                        f.write(data)
-                    return jpg
-        except (HTTPError, URLError, OSError, ValueError):
-            time.sleep(1)
-            return None  # offline or turned away: try again next time
-        finally:
-            time.sleep(0.4)
-        with open(miss, "w") as f:
-            f.write("")
+            except (HTTPError, URLError, OSError):
+                continue
+            if data[:3] == b"\xff\xd8\xff" or data[:4] == b"\x89PNG":
+                with open(jpg, "wb") as f:
+                    f.write(data)
+                return jpg
+        if asked:  # the sources answered and nothing matched (if none answered, try again next time)
+            with open(miss, "w") as f:
+                f.write("")
         return None
+    finally:
+        time.sleep(0.3)
+        cover_lock.release()
+
+
+COVER_STYLES = [  # (words in the genre, label shown, background, second colour, label colour)
+    (("opera", "classical", "orchestral", "baroque", "choral"), "Classical", "#3b0f17", "#6d1f2c", "#c9a24a"),
+    (("soundtrack", "musical", "stage", "film", "show"), "Soundtrack", "#14213d", "#26386b", "#e5b33f"),
+    (("dance", "house", "electro", "techno", "trance", "edm", "club", "electronic"), "Dance", "#1b0b3a", "#4a1d8f", "#22d3ee"),
+    (("rock", "punk", "metal", "grunge", "indie", "alternative", "new wave"), "Rock", "#1a1a1a", "#3a3a3a", "#d63a2f"),
+    (("jazz", "blues", "soul", "r&b", "rnb", "funk", "gospel"), "Soul & Jazz", "#0f3b3a", "#1f6b67", "#f2b544"),
+    (("folk", "country", "world", "flamenco", "latin", "celtic", "acoustic", "chanson", "french"), "Folk & World", "#3d3416", "#6f6227", "#e98a3b"),
+    (("hip", "rap", "grime", "urban"), "Hip-Hop", "#111827", "#374151", "#facc15"),
+    (("pop", "easy", "ballad", "adult"), "Pop", "#5b1340", "#a12a6e", "#ffd1e3"),
+]
+
+
+def generic_cover(a):
+    """A plain record-sleeve picture in the colours of the album's type, with its name on it."""
+    from xml.sax.saxutils import escape
+    g = " ".join(str(x or "") for x in (a.get("genre"), a.get("tagGenre"))).lower()
+    label, bg, bg2, acc = "Music", "#2b1d18", "#5a3b2e", "#d8b26e"
+    for words, name, c1, c2, c3 in COVER_STYLES:
+        if any(w in g for w in words):
+            label, bg, bg2, acc = name, c1, c2, c3
+            break
+    if (a.get("artist") or "").lower() == "various artists" and label == "Music":
+        label = "Compilation"
+    name = a.get("title") or "Untitled"
+    wrap, fs = (18, 46) if len(name) <= 36 else (24, 36)  # long names: smaller letters, more per line
+    lines, line = [], ""
+    for w in name.split():
+        if len(line) + len(w) > wrap and line:
+            lines.append(line)
+            line = w
+        else:
+            line = (line + " " + w).strip()
+    lines.append(line)
+    lines = lines[:4]
+    gap = fs + 4
+    title = "".join(f'<tspan x="44" dy="{0 if i == 0 else gap}">{escape(t)}</tspan>' for i, t in enumerate(lines))
+    artist = escape((a.get("artist") or "")[:34])
+    grooves = "".join(f'<circle cx="430" cy="250" r="{r}" fill="none" stroke="#ffffff" stroke-opacity=".06" stroke-width="2"/>'
+                      for r in range(70, 200, 14))
+    y0 = 600 - 70 - gap * (len(lines) - 1) - 40
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{bg2}"/><stop offset="1" stop-color="{bg}"/></linearGradient></defs>
+<rect width="600" height="600" fill="url(#g)"/>
+<circle cx="430" cy="250" r="205" fill="#0b0b0b"/>{grooves}
+<circle cx="430" cy="250" r="62" fill="{acc}"/><circle cx="430" cy="250" r="7" fill="#0b0b0b"/>
+<text x="44" y="70" font-family="Georgia, serif" font-size="26" letter-spacing="6" fill="{acc}">{escape(label.upper())}</text>
+<rect x="44" y="86" width="60" height="4" fill="{acc}"/>
+<text x="44" y="{y0}" font-family="Impact, 'Arial Narrow', sans-serif" font-size="{fs}" fill="#ffffff">{title}</text>
+<text x="44" y="{y0 + gap * (len(lines) - 1) + 44}" font-family="Georgia, serif" font-size="24" fill="#ffffff" fill-opacity=".75">{artist}</text>
+</svg>"""
+    return svg.encode("utf-8")
+
+
+def fetch_covers(albums):
+    """After a scan: look up every missing cover in the background, one at a time."""
+    def run():
+        for a in albums:
+            if not a.get("_cover") and not a.get("_artSrc"):
+                try:
+                    online_cover(a)
+                except Exception:
+                    pass
+    threading.Thread(target=run, daemon=True).start()
 
 
 def _text(v):
@@ -1329,10 +1441,10 @@ class Handler(BaseHTTPRequestHandler):
                 data, mime = embedded_art(os.path.join(MUSIC_ROOT, a["_artSrc"]))
                 if data:
                     return self.send_bytes(data, mime, extra={"Cache-Control": "max-age=86400"})
-            found = online_cover(a)
+            found = online_cover(a, wait=False)
             if found:
                 return self.send_file(found, "image/jpeg")
-            return self.not_found()
+            return self.send_bytes(generic_cover(a), "image/svg+xml", extra={"Cache-Control": "no-store"})
         m = re.match(r"^/api/lyrics/(\w+)$", path)
         if m:
             t = track_by_id.get(m.group(1))

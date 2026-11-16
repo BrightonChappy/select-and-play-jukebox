@@ -240,6 +240,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
 .transport{display:flex;gap:.35rem}
 .transport .key{font-size:var(--text-lg);min-width:3rem;justify-content:center;padding:.4rem .6rem}
 .transport .key.play{min-width:4rem}
+.transport .key.fwd{font-size:var(--text-sm);min-width:3.4rem}
 .selector{display:grid;gap:.25rem}
 .selector .rows{display:grid;grid-template-columns:repeat(10,1.9rem);gap:.25rem}
 .selector .key[data-sel="1"]{grid-column-start:1}
@@ -492,7 +493,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
       <canvas id="viz"></canvas>
       <div class="prog"><span id="fCur">0:00</span><input type="range" id="fseek" min="0" max="1000" value="0" aria-label="Seek"><span id="fDur">0:00</span></div>
       <div class="ctl">
-        <button class="key" data-k="prev">◀◀</button><button class="key red" data-k="toggle" id="fPlay">Play</button><button class="key" data-k="next">▶▶</button>
+        <button class="key" data-k="prev">◀◀</button><button class="key red" data-k="toggle" id="fPlay">Play</button><button class="key" data-k="next">▶▶</button><button class="key" data-k="fwd" title="Forward 20 seconds">+20s</button>
         <button class="key" id="fOne">Stop after this</button><button class="key" id="fFav">Favourite</button><button class="key" id="fLyr">Lyrics</button>
       </div>
       <div class="lyr" id="fLyrics"></div>
@@ -518,6 +519,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
       <button class="key" data-k="prev" title="Previous (Shift+←)">◀◀</button>
       <button class="key red play" data-k="toggle" id="playBtn" title="Play / pause (Space)">▶</button>
       <button class="key" data-k="next" title="Next (Shift+→)">▶▶</button>
+      <button class="key fwd" data-k="fwd" title="Forward 20 seconds">+20s</button>
     </div>
     <div class="selector" aria-label="Selector keys">
       <div class="read"><span>Selection</span><b id="selRead">_ _</b></div>
@@ -1652,6 +1654,13 @@ $('#vClear').onclick = () => { const removed = V.list.splice(V.i + 1); renderVsi
 audio.addEventListener('play', () => { if (vPlaying()) vPause(); if (V.resume) V.resume = false; renderVside(); });
 
 // the bottom panel follows the clip while one is on the screen and the music is paused
+// jump 20 seconds ahead in the song, podcast or video (not live radio)
+function fwd20() {
+  if (vOn()) { const [c, d] = vTimes(); if (d) vSeek(Math.min(c + 20, d - 1) / d); return; }
+  if (byT[Q[qi]]?.radio) return;
+  const d = isFinite(audio.duration) && audio.duration;
+  audio.currentTime = d ? Math.min(audio.currentTime + 20, d - 0.5) : audio.currentTime + 20;
+}
 function vOn() { return !$('#vroom').hidden && !!V.list[V.i] && audio.paused; }
 function vTimes() {
   try { if (YTP?.getCurrentTime) return [YTP.getCurrentTime() || 0, YTP.getDuration() || 0]; } catch {}
@@ -1856,7 +1865,7 @@ document.addEventListener('click', e => {
   if (d.editalbum) return editMoods('album', d.editalbum);
   if (d.renamepl) { const p = S.playlists.find(x => x.id === d.renamepl); const bg = modal('<h3>Rename play list</h3><input type="text" maxlength="80" aria-label="Name">', bg => { const n = bg.querySelector('input').value.trim(); if (!n) return false; p.name = n; save(); route(); }); bg.querySelector('input').value = p.name; return; }
   if (d.delpl) { const i = S.playlists.findIndex(x => x.id === d.delpl), [p] = S.playlists.splice(i, 1); save(); location.hash = '#/playlists'; toastUndo(`Deleted ${p.name}`, () => { S.playlists.splice(i, 0, p); save(); route(); }); return; }
-  if (d.k) { (vOn() ? {prev: vBack, next: () => vNext(false), toggle: vToggle} : {prev, next: () => next(false), toggle})[d.k](); return; }
+  if (d.k) { (vOn() ? {prev: vBack, next: () => vNext(false), toggle: vToggle, fwd: fwd20} : {prev, next: () => next(false), toggle, fwd: fwd20})[d.k](); return; }
   if (d.action) {
     const a = d.action;
     if (a === 'random') randomScope();
