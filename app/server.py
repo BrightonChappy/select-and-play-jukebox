@@ -3,6 +3,7 @@
 Run:  python server.py            (this computer only)
       python server.py --lan      (also reachable from phones on your Wi-Fi)
 """
+import datetime
 import hashlib
 import json
 import mimetypes
@@ -901,6 +902,8 @@ def pod_show(sid, fresh=False):
         if not extra:
             return None
         show = {"id": sid, "count": 0, "latest": "", **extra}
+    if show.get("dir"):
+        return _pod_local(sid, show)
     with urlopen(Request(show["feed"], headers=POD_UA), timeout=25) as r:
         root = ET.fromstring(r.read())
     ch = root.find("channel")
@@ -921,6 +924,33 @@ def pod_show(sid, fresh=False):
     eps.sort(key=lambda e: e["date"], reverse=True)
     show["episodes"] = eps[:300]
     show["total"] = len(eps)
+    pod_cache[sid] = (time.time(), show)
+    return show
+
+
+def _pod_local(sid, show):
+    """A show recorded off the radio (lbc_record.py): every finished file in its folder is an episode."""
+    folder = os.path.join(DATA_DIR, show["dir"])
+    eps = []
+    for name in os.listdir(folder) if os.path.isdir(folder) else []:
+        if not name.endswith(".m4a") or ".part" in name:
+            continue
+        path = os.path.join(folder, name)
+        date = name[:10]
+        try:
+            day = datetime.date.fromisoformat(date).strftime("%A %d %B %Y")
+        except ValueError:
+            day = name[:-4]
+        try:
+            dur = round(mutagen.File(path).info.length)
+        except Exception:
+            dur = 0
+        eps.append({"key": hashlib.md5(path.encode()).hexdigest()[:12], "title": f"{show['title']} - {day}",
+                    "date": date, "dur": dur, "about": "Recorded off the radio.", "url": "local:" + path})
+    eps.sort(key=lambda e: e["date"], reverse=True)
+    show = {k: v for k, v in show.items() if k != "dir"}
+    show.update(about=show.get("about") or "Recorded off the live radio stream each week.",
+                episodes=eps, total=len(eps), count=len(eps), latest=eps[0]["date"] if eps else "", feed="")
     pod_cache[sid] = (time.time(), show)
     return show
 
@@ -1322,6 +1352,11 @@ class Handler(BaseHTTPRequestHandler):
                 url = pod_url(m.group(1), m.group(2))
             except (HTTPError, URLError, OSError, ValueError, ET.ParseError):
                 url = None
+            if url and url.startswith("local:"):
+                f = os.path.abspath(url[6:])
+                if f.startswith(os.path.abspath(DATA_DIR) + os.sep) and os.path.isfile(f):
+                    return self.send_file(f, "audio/mp4")
+                return self.send_bytes(b"episode not found", "text/plain", 404)
             return self.relay(url, pod=True) if url else self.send_bytes(b"episode not found", "text/plain", 404)
         if path == "/api/video/search":
             qs = parse_qs(urlparse(self.path).query)
