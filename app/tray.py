@@ -209,6 +209,7 @@ def main():
     # straight away, so make this event run its handlers in step
     window.events.closing._should_lock = True
     tray = make_tray()
+    server.QUIT = quit_app  # the Exit button on the page
     tray.run_detached()
     threading.Thread(target=wait_for_show, args=(event,), daemon=True).start()
     threading.Thread(target=watch_title, daemon=True).start()

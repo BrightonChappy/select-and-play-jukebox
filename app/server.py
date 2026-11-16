@@ -68,6 +68,21 @@ def sid(text):
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
 
 
+
+QUIT = None  # tray.py sets this to its own close-everything function
+
+
+def quit_all():
+    time.sleep(0.4)  # let the page get its answer first
+    try:
+        if QUIT:
+            QUIT()
+    except Exception:
+        pass
+    time.sleep(2)
+    os._exit(0)  # anything still running stops here
+
+
 def load_json(path, default):
     try:
         with open(path, encoding="utf-8") as f:
@@ -1633,6 +1648,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        if path == "/api/quit":  # the Exit button: close the window, tray icon and music completely
+            self.send_json({"ok": True})
+            threading.Thread(target=quit_all, daemon=True).start()
+            return
         if path == "/api/state":
             try:
                 data = json.loads(body or b"{}")

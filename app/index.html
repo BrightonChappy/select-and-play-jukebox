@@ -450,6 +450,7 @@ input[type=range]::-moz-range-thumb{width:10px;height:16px;background:var(--colo
       <a class="key ink" id="vidBtn" href="#/video" title="Music videos and any clip from the internet (W)">Videos</a>
       <a class="key ink" id="podBtn" href="#/pod" title="Your podcasts (P)">Podcasts</a>
       <a class="key red" id="netBtn" href="#/net" title="Free music from the internet (I)">Internet</a>
+      <button class="key ink" id="exitBtn" title="Close the jukebox completely (music, window and tray icon)">Exit</button>
     </div>
   </header>
   <div class="navrow"><button class="key sm" id="backBtn" title="Back to the last page (Backspace)" aria-label="Back" disabled>← Back</button><nav class="dims" id="dims"></nav></div>
@@ -1928,6 +1929,21 @@ $('#clearQ').onclick = () => { const removed = Q.splice(qi + 1); renderQueue(); 
 $('#saveQ').onclick = () => newPlaylist(Q.slice());
 $('#disc').onclick = () => { if (vOn()) return $('#vroom').classList.add('big'); if (Q[qi]) { $('#full').classList.add('open'); renderNP(); } };
 $('#fullClose').onclick = () => $('#full').classList.remove('open');
+// Exit: first press asks, second press closes everything
+let exitTimer;
+$('#exitBtn').onclick = () => {
+  const b = $('#exitBtn');
+  if (!b.classList.contains('red')) {
+    b.classList.add('red'); b.textContent = 'Really exit?';
+    clearTimeout(exitTimer); exitTimer = setTimeout(() => { b.classList.remove('red'); b.textContent = 'Exit'; }, 4000);
+    return;
+  }
+  clearTimeout(exitTimer); b.textContent = 'Closing…'; audio.pause();
+  clearTimeout(saveTimer);  // save your place now, then close
+  const bye = () => fetch('/api/quit', {method: 'POST'}).catch(() => {});
+  try { netKeep(); } catch {}
+  fetch('/api/state', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(S)}).then(bye, bye);
+};
 $('#fFav').onclick = () => { const id = Q[qi]; if (!id) return; if (S.favs[id]) delete S.favs[id]; else S.favs[id] = Date.now(); save(); renderNP(); document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => b.classList.toggle('fav', !!S.favs[id])); };
 $('#fLyr').onclick = async () => { const l = $('#fLyrics'); if (l.classList.toggle('show')) { l.textContent = 'Loading…'; const r = await fetch('/api/lyrics/' + Q[qi]).then(r => r.json()).catch(() => ({})); l.textContent = r.lyrics || 'No lyrics in this file.'; } };
 let qTimer;
