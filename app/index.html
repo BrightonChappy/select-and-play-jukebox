@@ -598,6 +598,7 @@ function playList(ids, start = 0, opts = {}) {
   ids = ids.filter(id => byT[id]);
   if (!ids.length) return toast('Nothing to play here');
   singleSong = false;
+  if (opts.shuffle) offRepeatOne();  // a Random button should move through songs, not loop the first one
   if (opts.shuffle || (S.settings.shuffle && !opts.inOrder)) {
     const first = opts.shuffle ? null : ids[start];
     Q = first ? [first, ...shuffleArr(ids.filter((_, i) => i !== start))] : shuffleArr(ids); origQ = ids.slice(); qi = 0;
@@ -919,7 +920,8 @@ function renderDims(cur) {
 // the scope of the current page — what "Random" plays
 let SCOPE = {ids: [], source: {k: 'Everything', v: '', d: 'random'}};
 function setScope(ids, k, v) { SCOPE = {ids: ids.filter(id => byT[id]), source: {k, v, d: 'random'}}; $('#randBtn').title = `Random from ${v || k.toLowerCase()} (X)`; }
-function randomScope() { if (SCOPE.fn) return SCOPE.fn(); if (!SCOPE.ids.length) return toast('Nothing to play here'); playList(SCOPE.ids, 0, {shuffle: true, source: {...SCOPE.source}}); toast(`Random: ${SCOPE.source.v || SCOPE.source.k}`); }
+function offRepeatOne() { if (S.settings.repeat === 'one') { S.settings.repeat = 'off'; save(); renderNP(); } }
+function randomScope() { if (SCOPE.fn) { offRepeatOne(); return SCOPE.fn(); } if (!SCOPE.ids.length) return toast('Nothing to play here'); playList(SCOPE.ids, 0, {shuffle: true, source: {...SCOPE.source}}); toast(`Random: ${SCOPE.source.v || SCOPE.source.k}`); }
 
 const tabCols = n => n <= 9 ? n : Math.ceil(n / 2);
 function viewBy(dim, raw = '') {
