@@ -966,9 +966,11 @@ function viewAlbum(id) {
     ${more.length ? `<h2 class="sub-h">More by ${esc(a.artist)}</h2>${rack(more)}` : ''}
     ${similar.length ? `<h2 class="sub-h">Same mood</h2>${rack(similar)}` : ''}`;
 }
+// "Various Artists" means every compilation record, not just tracks that lack an artist tag
+const isVA = t => t.artist === 'Various Artists' || byA[t.album]?.artist === 'Various Artists';
 function artists() {
-  const m = new Map();
-  for (const t of TR) { const e = m.get(t.artist) || {name: t.artist, albums: new Set(), ids: []}; e.albums.add(t.album); e.ids.push(t.id); m.set(t.artist, e); }
+  const m = new Map(), add = (name, t) => { const e = m.get(name) || {name, albums: new Set(), ids: []}; e.albums.add(t.album); e.ids.push(t.id); m.set(name, e); };
+  for (const t of TR) { if (t.artist !== 'Various Artists') add(t.artist, t); if (isVA(t) && !t.net && !t.radio && !t.pod) add('Various Artists', t); }
   return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 function viewArtists() {
@@ -977,7 +979,7 @@ function viewArtists() {
     <div class="cards">${list.map(ar => `<div class="card" role="button" tabindex="0" data-go="#/artist/${enc(ar.name)}"><div><b>${esc(ar.name)}</b><span>${ar.albums.size} record${ar.albums.size > 1 ? 's' : ''} · ${ar.ids.length} songs</span></div><button class="key sm" data-shufids="${ar.ids.join(',')}" data-label="${esc(ar.name)}" data-kind="Artist">Random</button></div>`).join('')}</div>`;
 }
 function viewArtist(raw) {
-  const name = decodeURIComponent(raw), ids = TR.filter(t => t.artist === name).map(t => t.id);
+  const name = decodeURIComponent(raw), ids = TR.filter(t => name === 'Various Artists' ? isVA(t) && !t.net && !t.radio && !t.pod : t.artist === name).map(t => t.id);
   if (!ids.length) return notFound();
   setScope(ids, 'Artist', name);
   const albs = [...new Set(ids.map(id => byT[id].album))].map(id => byA[id]);

@@ -63,7 +63,7 @@ Yes. Here's how to tell:
   - **Microsoft Defender** (the antivirus built into Windows) scanned the download on 11 November 2026, with up-to-date virus definitions, and found no threats.
   - You can run your own scan for free at [virustotal.com](https://www.virustotal.com).
 - **Check you've got the real file:** the download's SHA-256 fingerprint is
-  `1ea1e17ce261b3ba039a180eca1cb89d2cc51be18a76dc290d16be206198778a`.
+  `35160034c4ee8d7fd261872008afc9b98806fd937793636bad19c6cddf9c47c7`.
   To check yours, right-click the Start button, open **Terminal** (or PowerShell), and type `Get-FileHash $HOME\Downloads\Select-and-Play.zip`. The long code it shows should match.
 - **You can read every line.** Everything it runs is on this page in plain text: the installer is `install.ps1`, and the jukebox is in the `app` folder. There are no hidden programs inside.
 - **What the installer adds:** Python (the free programming language, from python.org), six free add-ons (`mutagen`, `pywebview`, `pystray`, `imageio-ffmpeg` and `pillow`, plus `yt-dlp` for the Videos page), Microsoft's WebView2 if it's missing, and the jukebox itself. It doesn't need administrator access and doesn't change system settings.
